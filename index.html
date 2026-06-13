@@ -632,9 +632,30 @@
     }
 
     function getSpouseIncomeAtAge(age) {
-      return choices
-        .filter(choice => choice.type === "marriage" && age >= choice.age)
-        .reduce((sum, choice) => sum + (choice.spouseIncome || 0), 0);
+      const activeMarriageSpouseIncomes = [];
+
+      const relationshipEvents = choices
+        .map((choice, index) => ({ ...choice, originalIndex: index }))
+        .filter(choice =>
+          choice.age <= age &&
+          (choice.type === "marriage" || choice.type === "divorce")
+        )
+        .sort((a, b) => {
+          if (a.age !== b.age) return a.age - b.age;
+          return a.originalIndex - b.originalIndex;
+        });
+
+      relationshipEvents.forEach(choice => {
+        if (choice.type === "marriage") {
+          activeMarriageSpouseIncomes.push(choice.spouseIncome || 0);
+        }
+
+        if (choice.type === "divorce") {
+          activeMarriageSpouseIncomes.pop();
+        }
+      });
+
+      return activeMarriageSpouseIncomes.reduce((sum, income) => sum + income, 0);
     }
 
     function getIncomeAtAge(age) {
@@ -863,10 +884,13 @@
           const hiddenNote = choice.age > getViewEndAge() ? " — outside current view" : "";
 
           const spouseText = choice.spouseIncome
-            ? `<div>Spouse income: +${money(choice.spouseIncome)}/mo</div>`
+            ? `<div>Spouse income: +${money(choice.spouseIncome)}/mo until divorce</div>`
+            : "";
+          const divorceText = choice.type === "divorce"
+            ? `<div>Removes the active spouse income from this age forward.</div>`
             : "";
           const netText = choice.spouseIncome
-            ? `<div><strong>Net effect: ${money(choice.spouseIncome - choice.monthlyCost)}/mo</strong></div>`
+            ? `<div><strong>Net effect before divorce: ${money(choice.spouseIncome - choice.monthlyCost)}/mo</strong></div>`
             : "";
 
           return `
@@ -874,6 +898,7 @@
               <div>${choice.icon} <strong>${choice.label}</strong> at age ${choice.age}${hiddenNote}</div>
               <div>${choice.costLabel}: -${money(choice.monthlyCost)}/mo</div>
               ${spouseText}
+              ${divorceText}
               ${netText}
               <span class="remove" onclick="removeChoice(${realIndex})">remove</span>
             </div>
@@ -955,13 +980,18 @@
 
       const data = choiceData[pendingChoice.type];
 
+      const spouseIncome = pendingChoice.type === "marriage"
+        ? Math.max(0, Number(spouseIncomeInput.value) || 0)
+        : 0;
+
       choices.push({
         type: pendingChoice.type,
         label: data.label,
         icon: data.icon,
         age: pendingChoice.age,
         monthlyCost: customCost,
-        costLabel: "Custom"
+        costLabel: "Custom",
+        spouseIncome
       });
 
       closeCostModal();
