@@ -421,7 +421,7 @@
         </div>
 
         <div class="hint">
-          Drop choices on the chart. Move your mouse or touch the graph to see dollar amounts.
+          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts.
         </div>
 
         <div class="warning" id="warningBox"></div>
@@ -963,8 +963,46 @@
       tooltip.style.display = "none";
     }
 
+    function getChoiceIndexAtPoint(clientX, clientY) {
+      if (!lastChart) return -1;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      for (let i = choices.length - 1; i >= 0; i--) {
+        const choice = choices[i];
+
+        if (choice.age > getViewEndAge()) continue;
+
+        const iconX = ageToX(choice.age, lastChart.left, lastChart.width);
+        const iconY = lastChart.top + 20;
+
+        const withinX = Math.abs(x - iconX) <= 22;
+        const withinY = Math.abs(y - iconY) <= 28;
+
+        if (withinX && withinY) {
+          return i;
+        }
+      }
+
+      return -1;
+    }
+
+    function moveExistingChoice(clientX) {
+      if (movingChoiceIndex === null || !lastChart) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const newAge = xToAge(x, lastChart.left, lastChart.width);
+
+      choices[movingChoiceIndex].age = newAge;
+      draw();
+    }
+
     let dragEl = null;
     let dragType = null;
+    let movingChoiceIndex = null;
 
     document.querySelectorAll(".choice").forEach(choice => {
       choice.addEventListener("pointerdown", e => {
@@ -1036,15 +1074,64 @@
       if (e.target === costModal) closeCostModal();
     });
 
-    canvas.addEventListener("mousemove", e => showTooltip(e.clientX, e.clientY));
-    canvas.addEventListener("mouseleave", hideTooltip);
+    canvas.addEventListener("pointerdown", e => {
+      const choiceIndex = getChoiceIndexAtPoint(e.clientX, e.clientY);
+
+      if (choiceIndex === -1) return;
+
+      movingChoiceIndex = choiceIndex;
+      hideTooltip();
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+      e.preventDefault();
+    });
+
+    canvas.addEventListener("pointermove", e => {
+      if (movingChoiceIndex !== null) {
+        moveExistingChoice(e.clientX);
+        e.preventDefault();
+        return;
+      }
+
+      const choiceIndex = getChoiceIndexAtPoint(e.clientX, e.clientY);
+      canvas.style.cursor = choiceIndex === -1 ? "default" : "grab";
+    });
+
+    canvas.addEventListener("pointerup", e => {
+      if (movingChoiceIndex !== null) {
+        moveExistingChoice(e.clientX);
+        movingChoiceIndex = null;
+        canvas.style.cursor = "default";
+        e.preventDefault();
+      }
+    });
+
+    canvas.addEventListener("pointercancel", () => {
+      movingChoiceIndex = null;
+      canvas.style.cursor = "default";
+    });
+
+    canvas.addEventListener("mousemove", e => {
+      if (movingChoiceIndex !== null) return;
+      showTooltip(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      if (movingChoiceIndex === null) {
+        canvas.style.cursor = "default";
+      }
+
+      hideTooltip();
+    });
 
     canvas.addEventListener("touchstart", e => {
+      if (movingChoiceIndex !== null) return;
       if (!e.touches.length) return;
       showTooltip(e.touches[0].clientX, e.touches[0].clientY);
     });
 
     canvas.addEventListener("touchmove", e => {
+      if (movingChoiceIndex !== null) return;
       if (!e.touches.length) return;
       showTooltip(e.touches[0].clientX, e.touches[0].clientY);
     });
