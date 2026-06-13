@@ -65,7 +65,7 @@
 
     .main-layout {
       display: grid;
-      grid-template-columns: 1fr 270px;
+      grid-template-columns: 1fr 330px;
       gap: 14px;
       align-items: start;
     }
@@ -119,7 +119,7 @@
 
     canvas {
       width: 100%;
-      height: 390px;
+      height: 430px;
       display: block;
       border-bottom: 1px solid #e5e7eb;
     }
@@ -136,7 +136,7 @@
       line-height: 1.45;
       box-shadow: 0 10px 30px rgba(0,0,0,0.25);
       z-index: 50;
-      min-width: 155px;
+      min-width: 210px;
     }
 
     .legend {
@@ -164,6 +164,7 @@
     .base { background: #6b7280; }
     .choice-expense { background: #f97316; }
     .net { background: #2563eb; }
+    .portfolio { background: #7c3aed; }
 
     .hint {
       color: #6b7280;
@@ -320,6 +321,73 @@
       color: #111827;
     }
 
+
+    .table-card {
+      margin-top: 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .table-title {
+      padding: 10px 12px;
+      font-weight: bold;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .table-note {
+      color: #6b7280;
+      font-size: 12px;
+      font-weight: normal;
+    }
+
+    .table-scroll {
+      max-height: 320px;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    th:first-child, td:first-child {
+      text-align: left;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #f9fafb;
+      z-index: 1;
+      color: #374151;
+    }
+
+    .negative {
+      color: #dc2626;
+      font-weight: bold;
+    }
+
+    .positive {
+      color: #047857;
+      font-weight: bold;
+    }
+
     @media (max-width: 900px) {
       .main-layout {
         grid-template-columns: 1fr;
@@ -341,7 +409,7 @@
       <div>
         <h1>Life Choices Cashflow Visualizer</h1>
         <div class="subtitle">
-          Drag a life choice onto the graph. Pick a cost. See how monthly cashflow changes from age 18 onward.
+          Drag a life choice onto the graph. Pick a cost. See how monthly cashflow, invested savings, and projected net worth change from age 18 onward.
         </div>
       </div>
 
@@ -422,14 +490,37 @@
           <span><i class="dot income"></i> Income</span>
           <span><i class="dot base"></i> Base Expenses</span>
           <span><i class="dot choice-expense"></i> After Choices</span>
-          <span><i class="dot net"></i> Net Cash</span>
+          <span><i class="dot net"></i> Monthly Net Cash</span>
+          <span><i class="dot portfolio"></i> Projected Net Worth</span>
         </div>
 
         <div class="hint">
-          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts.
+          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts. Purple net worth assumes positive savings are invested at 8% per year.
         </div>
 
         <div class="warning" id="warningBox"></div>
+
+        <div class="table-card">
+          <div class="table-title">
+            <span>Annual Snapshot</span>
+            <span class="table-note">Income, expenses, net cash, and projected net worth</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Age</th>
+                  <th>Annual Income</th>
+                  <th>Annual Expenses</th>
+                  <th>Annual Net</th>
+                  <th>Investment Growth</th>
+                  <th>Projected Net Worth</th>
+                </tr>
+              </thead>
+              <tbody id="annualTableBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div class="side-card">
@@ -452,6 +543,21 @@
           <div class="summary-card">
             <div class="small" id="netSummaryLabel">Net cash</div>
             <div class="big" id="netSummary">$0</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="small" id="netWorthSummaryLabel">Projected net worth</div>
+            <div class="big" id="netWorthSummary">$0</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="small">Lifetime income</div>
+            <div class="big" id="lifetimeIncomeSummary">$0</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="small">Lifetime expenses</div>
+            <div class="big" id="lifetimeExpensesSummary">$0</div>
           </div>
         </div>
 
@@ -495,6 +601,7 @@
   <script>
     const START_AGE = 18;
     const FULL_END_AGE = 62;
+    const INVESTMENT_RETURN = 0.08;
 
     const baselineExpensesByCareer = {
       enlisted: 1000,
@@ -604,6 +711,11 @@
     const netSummary = document.getElementById("netSummary");
     const choiceSummaryLabel = document.getElementById("choiceSummaryLabel");
     const netSummaryLabel = document.getElementById("netSummaryLabel");
+    const netWorthSummary = document.getElementById("netWorthSummary");
+    const netWorthSummaryLabel = document.getElementById("netWorthSummaryLabel");
+    const lifetimeIncomeSummary = document.getElementById("lifetimeIncomeSummary");
+    const lifetimeExpensesSummary = document.getElementById("lifetimeExpensesSummary");
+    const annualTableBody = document.getElementById("annualTableBody");
     const eventsList = document.getElementById("eventsList");
     const warningBox = document.getElementById("warningBox");
     const tooltip = document.getElementById("tooltip");
@@ -703,6 +815,9 @@
     function getData() {
       const data = [];
       const endAge = getViewEndAge();
+      let projectedNetWorth = 0;
+      let lifetimeIncome = 0;
+      let lifetimeExpenses = 0;
 
       for (let age = START_AGE; age <= endAge; age++) {
         const income = getIncomeAtAge(age);
@@ -711,13 +826,29 @@
         const afterChoiceExpenses = baselineExpenses + choiceExpenses;
         const netCash = income - afterChoiceExpenses;
 
+        const annualIncome = income * 12;
+        const annualExpenses = afterChoiceExpenses * 12;
+        const annualNetCash = netCash * 12;
+        const investmentGrowth = projectedNetWorth > 0 ? projectedNetWorth * INVESTMENT_RETURN : 0;
+
+        projectedNetWorth = projectedNetWorth + investmentGrowth + annualNetCash;
+        lifetimeIncome += annualIncome;
+        lifetimeExpenses += annualExpenses;
+
         data.push({
           age,
           income,
           baselineExpenses,
           afterChoiceExpenses,
           choiceExpenses,
-          netCash
+          netCash,
+          annualIncome,
+          annualExpenses,
+          annualNetCash,
+          investmentGrowth,
+          projectedNetWorth,
+          lifetimeIncome,
+          lifetimeExpenses
         });
       }
 
@@ -740,6 +871,20 @@
       return { minY, maxY };
     }
 
+    function getNetWorthBounds(data) {
+      const values = data.map(row => row.projectedNetWorth);
+      values.push(0);
+
+      const minValue = Math.min(...values);
+      const maxValue = Math.max(...values);
+      const padding = Math.max(1000, (maxValue - minValue) * 0.12);
+
+      const minY = minValue < 0 ? Math.floor((minValue - padding) / 10000) * 10000 : 0;
+      const maxY = Math.ceil((maxValue + padding) / 10000) * 10000 || 10000;
+
+      return { minY, maxY };
+    }
+
     function drawLine(data, key, color, chart) {
       ctx.beginPath();
 
@@ -754,6 +899,43 @@
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.stroke();
+    }
+
+
+
+    function drawNetWorthLine(data, chart) {
+      ctx.beginPath();
+
+      data.forEach((point, index) => {
+        const x = ageToX(point.age, chart.left, chart.width);
+        const y = chart.bottom - ((point.projectedNetWorth - chart.netWorthMinY) / (chart.netWorthMaxY - chart.netWorthMinY)) * chart.height;
+
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+
+      ctx.strokeStyle = "#7c3aed";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawNetWorthAxis(chart) {
+      const steps = 4;
+
+      for (let i = 0; i <= steps; i++) {
+        const value = chart.netWorthMinY + ((chart.netWorthMaxY - chart.netWorthMinY) / steps) * i;
+        const y = chart.bottom - ((value - chart.netWorthMinY) / (chart.netWorthMaxY - chart.netWorthMinY)) * chart.height;
+
+        ctx.fillStyle = "#7c3aed";
+        ctx.font = "12px Arial";
+        ctx.fillText(money(value), chart.right + 8, y + 4);
+      }
+
+      ctx.fillStyle = "#7c3aed";
+      ctx.font = "12px Arial";
+      ctx.fillText("Net worth", chart.right + 8, chart.top - 6);
     }
 
     function drawAgeTicks(chart) {
@@ -785,14 +967,17 @@
 
       const data = getData();
       const bounds = getYBounds(data);
+      const netWorthBounds = getNetWorthBounds(data);
 
       const chart = {
         left: 60,
-        right: w - 24,
+        right: w - 92,
         top: 24,
         bottom: h - 48,
         minY: bounds.minY,
-        maxY: bounds.maxY
+        maxY: bounds.maxY,
+        netWorthMinY: netWorthBounds.minY,
+        netWorthMaxY: netWorthBounds.maxY
       };
 
       chart.width = chart.right - chart.left;
@@ -819,6 +1004,8 @@
         ctx.fillText(money(yValue), 8, y + 4);
       }
 
+      drawNetWorthAxis(chart);
+
       ctx.strokeStyle = "#111827";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -832,6 +1019,7 @@
       drawLine(data, "baselineExpenses", "#6b7280", chart);
       drawLine(data, "afterChoiceExpenses", "#f97316", chart);
       drawLine(data, "netCash", "#2563eb", chart);
+      drawNetWorthLine(data, chart);
 
       choices
         .filter(choice => choice.age <= getViewEndAge())
@@ -860,6 +1048,11 @@
       netSummaryLabel.textContent = "Net cash at age " + endAge;
       choiceSummary.textContent = money(finalRow.choiceExpenses);
       netSummary.textContent = money(finalRow.netCash);
+      netWorthSummaryLabel.textContent = "Projected net worth at age " + endAge;
+      netWorthSummary.textContent = money(finalRow.projectedNetWorth);
+      lifetimeIncomeSummary.textContent = money(finalRow.lifetimeIncome);
+      lifetimeExpensesSummary.textContent = money(finalRow.lifetimeExpenses);
+      updateAnnualTable(data);
 
       const firstNegative = data.find(row => row.netCash < 0);
 
@@ -905,6 +1098,27 @@
           `;
         })
         .join("");
+    }
+
+
+
+    function valueClass(value) {
+      if (value < 0) return "negative";
+      if (value > 0) return "positive";
+      return "";
+    }
+
+    function updateAnnualTable(data) {
+      annualTableBody.innerHTML = data.map(row => `
+        <tr>
+          <td>${row.age}</td>
+          <td>${money(row.annualIncome)}</td>
+          <td>${money(row.annualExpenses)}</td>
+          <td class="${valueClass(row.annualNetCash)}">${money(row.annualNetCash)}</td>
+          <td>${money(row.investmentGrowth)}</td>
+          <td class="${valueClass(row.projectedNetWorth)}">${money(row.projectedNetWorth)}</td>
+        </tr>
+      `).join("");
     }
 
     function removeChoice(index) {
@@ -1026,7 +1240,10 @@
         Spouse income included: ${money(getSpouseIncomeAtAge(row.age))}<br>
         Base expenses: ${money(row.baselineExpenses)}<br>
         After choices: ${money(row.afterChoiceExpenses)}<br>
-        Net cash: ${money(row.netCash)}
+        Monthly net cash: ${money(row.netCash)}<br>
+        Annual net cash: ${money(row.annualNetCash)}<br>
+        Investment growth: ${money(row.investmentGrowth)}<br>
+        Projected net worth: ${money(row.projectedNetWorth)}
       `;
 
       tooltip.style.display = "block";
