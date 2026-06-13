@@ -355,6 +355,11 @@
         </label>
 
         <label>
+          Monthly income:
+          <input id="monthlyIncomeInput" type="number" min="0" step="100" />
+        </label>
+
+        <label>
           View:
           <select id="viewSelect">
             <option value="5">5 years</option>
@@ -471,6 +476,16 @@
         </div>
       </div>
 
+      <div id="spouseIncomeSection" style="display:none; margin-top:14px;">
+        <strong>Optional spouse monthly income</strong>
+        <div class="modal-subtitle" style="margin-top:4px; margin-bottom:8px;">
+          If your spouse works, enter their monthly income. It will be added starting at the marriage age.
+        </div>
+        <div class="custom-row">
+          <input id="spouseIncomeInput" type="number" min="0" step="100" placeholder="Example: 3000" />
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button class="secondary" id="cancelModalBtn">Cancel</button>
       </div>
@@ -568,6 +583,7 @@
     };
 
     let careerPath = "enlisted";
+    let customStartIncome = incomePaths.enlisted.startIncome;
     let viewMode = "10";
     let choices = [];
     let pendingChoice = null;
@@ -578,6 +594,7 @@
     const ctx = canvas.getContext("2d");
 
     const careerSelect = document.getElementById("careerSelect");
+    const monthlyIncomeInput = document.getElementById("monthlyIncomeInput");
     const viewSelect = document.getElementById("viewSelect");
     const resetBtn = document.getElementById("resetBtn");
 
@@ -596,6 +613,8 @@
     const modalSubtitle = document.getElementById("modalSubtitle");
     const presetGrid = document.getElementById("presetGrid");
     const customCostInput = document.getElementById("customCostInput");
+    const spouseIncomeSection = document.getElementById("spouseIncomeSection");
+    const spouseIncomeInput = document.getElementById("spouseIncomeInput");
     const customCostBtn = document.getElementById("customCostBtn");
     const cancelModalBtn = document.getElementById("cancelModalBtn");
 
@@ -612,15 +631,26 @@
       return baselineExpensesByCareer[careerPath];
     }
 
+    function getSpouseIncomeAtAge(age) {
+      return choices
+        .filter(choice => choice.type === "marriage" && age >= choice.age)
+        .reduce((sum, choice) => sum + (choice.spouseIncome || 0), 0);
+    }
+
     function getIncomeAtAge(age) {
       const path = incomePaths[careerPath];
+      const startIncome = customStartIncome;
+
+      let personalIncome;
 
       if (age <= 35) {
-        return path.startIncome + ((age - START_AGE) * path.yearlyGrowthUntil35);
+        personalIncome = startIncome + ((age - START_AGE) * path.yearlyGrowthUntil35);
+      } else {
+        const incomeAt35 = startIncome + ((35 - START_AGE) * path.yearlyGrowthUntil35);
+        personalIncome = incomeAt35 + ((age - 35) * path.yearlyGrowthAfter35);
       }
 
-      const incomeAt35 = path.startIncome + ((35 - START_AGE) * path.yearlyGrowthUntil35);
-      return incomeAt35 + ((age - 35) * path.yearlyGrowthAfter35);
+      return personalIncome + getSpouseIncomeAtAge(age);
     }
 
     function resizeCanvas() {
@@ -832,10 +862,19 @@
           const realIndex = choices.indexOf(choice);
           const hiddenNote = choice.age > getViewEndAge() ? " — outside current view" : "";
 
+          const spouseText = choice.spouseIncome
+            ? `<div>Spouse income: +${money(choice.spouseIncome)}/mo</div>`
+            : "";
+          const netText = choice.spouseIncome
+            ? `<div><strong>Net effect: ${money(choice.spouseIncome - choice.monthlyCost)}/mo</strong></div>`
+            : "";
+
           return `
             <div class="event-row">
               <div>${choice.icon} <strong>${choice.label}</strong> at age ${choice.age}${hiddenNote}</div>
-              <div>${choice.costLabel}: +${money(choice.monthlyCost)}/mo</div>
+              <div>${choice.costLabel}: -${money(choice.monthlyCost)}/mo</div>
+              ${spouseText}
+              ${netText}
               <span class="remove" onclick="removeChoice(${realIndex})">remove</span>
             </div>
           `;
@@ -856,6 +895,8 @@
       modalTitle.textContent = data.icon + " " + data.label;
       modalSubtitle.textContent = "Dropped at age " + age + ". Choose the monthly cost.";
       customCostInput.value = "";
+      spouseIncomeInput.value = "";
+      spouseIncomeSection.style.display = type === "marriage" ? "block" : "none";
 
       presetGrid.innerHTML = data.presets.map((preset, index) => `
         <button class="preset-btn" onclick="selectPreset(${index})">
@@ -874,6 +915,8 @@
       costModal.style.display = "none";
       pendingChoice = null;
       customCostInput.value = "";
+      spouseIncomeInput.value = "";
+      spouseIncomeSection.style.display = "none";
     }
 
     function selectPreset(index) {
@@ -882,13 +925,18 @@
       const data = choiceData[pendingChoice.type];
       const preset = data.presets[index];
 
+      const spouseIncome = pendingChoice.type === "marriage"
+        ? Math.max(0, Number(spouseIncomeInput.value) || 0)
+        : 0;
+
       choices.push({
         type: pendingChoice.type,
         label: data.label,
         icon: data.icon,
         age: pendingChoice.age,
         monthlyCost: preset.monthlyCost,
-        costLabel: preset.name
+        costLabel: preset.name,
+        spouseIncome
       });
 
       closeCostModal();
@@ -945,6 +993,7 @@
       tooltip.innerHTML = `
         <strong>Age ${row.age}</strong><br>
         Income: ${money(row.income)}<br>
+        Spouse income included: ${money(getSpouseIncomeAtAge(row.age))}<br>
         Base expenses: ${money(row.baselineExpenses)}<br>
         After choices: ${money(row.afterChoiceExpenses)}<br>
         Net cash: ${money(row.netCash)}
@@ -1054,6 +1103,14 @@
 
     careerSelect.addEventListener("change", e => {
       careerPath = e.target.value;
+      customStartIncome = incomePaths[careerPath].startIncome;
+      monthlyIncomeInput.value = customStartIncome;
+      draw();
+    });
+
+    monthlyIncomeInput.addEventListener("input", e => {
+      const value = Number(e.target.value);
+      customStartIncome = value >= 0 ? value : incomePaths[careerPath].startIncome;
       draw();
     });
 
@@ -1064,6 +1121,8 @@
 
     resetBtn.addEventListener("click", () => {
       choices = [];
+      customStartIncome = incomePaths[careerPath].startIncome;
+      monthlyIncomeInput.value = customStartIncome;
       draw();
     });
 
@@ -1138,6 +1197,7 @@
 
     window.addEventListener("resize", resizeCanvas);
 
+    monthlyIncomeInput.value = customStartIncome;
     resizeCanvas();
   </script>
 </body>
