@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Life Choices Cashflow Visualizer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f8fb;
+      color: #111827;
+    }
+
+    .app {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0 0 4px 0;
+      font-size: 26px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select, input {
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 9px 12px;
+      border: none;
+      border-radius: 10px;
+      background: #111827;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 270px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .top-panel {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .choice {
+      width: 92px;
+      height: 76px;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+      user-select: none;
+    }
+
+    .choice:active {
+      cursor: grabbing;
+    }
+
+    .icon {
+      font-size: 27px;
+      margin-bottom: 5px;
+    }
+
+    .label {
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .chart-card, .side-card {
+      background: white;
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.07);
+    }
+
+    .chart-wrap {
+      position: relative;
+    }
+
+    canvas {
+      width: 100%;
+      height: 390px;
+      display: block;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      display: none;
+      background: #111827;
+      color: white;
+      padding: 9px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.45;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      z-index: 50;
+      min-width: 155px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .dot {
+      width: 14px;
+      height: 4px;
+      display: inline-block;
+      border-radius: 999px;
+    }
+
+    .income { background: #16a34a; }
+    .base { background: #6b7280; }
+    .choice-expense { background: #f97316; }
+    .net { background: #2563eb; }
+
+    .hint {
+      color: #6b7280;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .warning {
+      margin-top: 8px;
+      padding: 10px;
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      display: none;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .summary-card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .summary-card .small {
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .summary-card .big {
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 4px;
+    }
+
+    .events-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .event-row {
+      padding: 8px 0;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 13px;
+    }
+
+    .event-row:last-child {
+      border-bottom: none;
+    }
+
+    .remove {
+      color: #dc2626;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 3px;
+      display: inline-block;
+    }
+
+    .dragging {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.9;
+      transform: translate(-50%, -50%);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 18px;
+    }
+
+    .modal {
+      background: white;
+      width: 100%;
+      max-width: 460px;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+
+    .modal h2 {
+      margin: 0 0 6px 0;
+      font-size: 22px;
+    }
+
+    .modal-subtitle {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 14px;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .preset-btn {
+      background: #f9fafb;
+      color: #111827;
+      border: 1px solid #d1d5db;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .preset-btn strong {
+      display: block;
+      font-size: 14px;
+    }
+
+    .preset-btn span {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .custom-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .custom-row input {
+      flex: 1;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    @media (max-width: 900px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        flex-direction: column;
+      }
+
+      canvas {
+        height: 360px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div>
+        <h1>Life Choices Cashflow Visualizer</h1>
+        <div class="subtitle">
+          Drag a life choice onto the graph. Pick a cost. See how monthly cashflow changes from age 18 onward.
+        </div>
+      </div>
+
+      <div class="controls">
+        <label>
+          Career:
+          <select id="careerSelect">
+            <option value="enlisted">Enlisted starter</option>
+            <option value="officer">Officer starter</option>
+          </select>
+        </label>
+
+        <label>
+          View:
+          <select id="viewSelect">
+            <option value="5">5 years</option>
+            <option value="10" selected>10 years</option>
+            <option value="20">20 years</option>
+            <option value="40">40 years</option>
+            <option value="full">Full career</option>
+          </select>
+        </label>
+
+        <button id="resetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="top-panel">
+      <div class="choice" data-type="college">
+        <div class="icon">🎓</div>
+        <div class="label">College</div>
+      </div>
+
+      <div class="choice" data-type="house">
+        <div class="icon">🏠</div>
+        <div class="label">House</div>
+      </div>
+
+      <div class="choice" data-type="car">
+        <div class="icon">🚗</div>
+        <div class="label">Car</div>
+      </div>
+
+      <div class="choice" data-type="marriage">
+        <div class="icon">💍</div>
+        <div class="label">Marriage</div>
+      </div>
+
+      <div class="choice" data-type="child">
+        <div class="icon">👶</div>
+        <div class="label">Child</div>
+      </div>
+
+      <div class="choice" data-type="divorce">
+        <div class="icon">⚖️</div>
+        <div class="label">Divorce</div>
+      </div>
+
+      <div class="choice" data-type="emergency">
+        <div class="icon">🚑</div>
+        <div class="label">Emergency</div>
+      </div>
+    </div>
+
+    <div class="main-layout">
+      <div class="chart-card">
+        <div class="chart-wrap">
+          <canvas id="chart"></canvas>
+          <div class="tooltip" id="tooltip"></div>
+        </div>
+
+        <div class="legend">
+          <span><i class="dot income"></i> Income</span>
+          <span><i class="dot base"></i> Base Expenses</span>
+          <span><i class="dot choice-expense"></i> After Choices</span>
+          <span><i class="dot net"></i> Net Cash</span>
+        </div>
+
+        <div class="hint">
+          Drop choices on the chart. Move your mouse or touch the graph to see dollar amounts.
+        </div>
+
+        <div class="warning" id="warningBox"></div>
+      </div>
+
+      <div class="side-card">
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="small">Income at age 18</div>
+            <div class="big" id="incomeStartSummary">$0</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="small">Base expenses</div>
+            <div class="big" id="baseSummary">$0</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="small" id="choiceSummaryLabel">Choice expenses</div>
+            <div class="big" id="choiceSummary">$0</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="small" id="netSummaryLabel">Net cash</div>
+            <div class="big" id="netSummary">$0</div>
+          </div>
+        </div>
+
+        <div class="events-title">Choices Added</div>
+        <div id="eventsList">No choices yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="costModal">
+    <div class="modal">
+      <h2 id="modalTitle">Choose Cost</h2>
+      <div class="modal-subtitle" id="modalSubtitle"></div>
+
+      <div class="preset-grid" id="presetGrid"></div>
+
+      <div>
+        <strong>Custom monthly cost</strong>
+        <div class="custom-row">
+          <input id="customCostInput" type="number" min="0" placeholder="Enter monthly cost" />
+          <button id="customCostBtn">Use Custom</button>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="secondary" id="cancelModalBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const START_AGE = 18;
+    const FULL_END_AGE = 62;
+
+    const baselineExpensesByCareer = {
+      enlisted: 1000,
+      officer: 2000
+    };
+
+    const incomePaths = {
+      enlisted: {
+        label: "Enlisted starter",
+        startIncome: 2400,
+        yearlyGrowthUntil35: 180,
+        yearlyGrowthAfter35: 80
+      },
+      officer: {
+        label: "Officer starter",
+        startIncome: 4800,
+        yearlyGrowthUntil35: 250,
+        yearlyGrowthAfter35: 100
+      }
+    };
+
+    const choiceData = {
+      college: {
+        label: "College",
+        icon: "🎓",
+        presets: [
+          { name: "Community college", description: "Lower monthly school cost", monthlyCost: 200 },
+          { name: "State school", description: "Medium monthly school cost", monthlyCost: 600 },
+          { name: "Private school", description: "High monthly school cost", monthlyCost: 1500 }
+        ]
+      },
+      house: {
+        label: "House",
+        icon: "🏠",
+        presets: [
+          { name: "Starter home", description: "Smaller / lower-cost home", monthlyCost: 1200 },
+          { name: "Average home", description: "Normal home payment", monthlyCost: 1800 },
+          { name: "Large home", description: "Bigger or nicer home", monthlyCost: 2800 }
+        ]
+      },
+      car: {
+        label: "Car",
+        icon: "🚗",
+        presets: [
+          { name: "Used car", description: "Lower payment", monthlyCost: 300 },
+          { name: "New car", description: "Normal payment", monthlyCost: 600 },
+          { name: "Luxury car", description: "High payment", monthlyCost: 1000 }
+        ]
+      },
+      marriage: {
+        label: "Marriage",
+        icon: "💍",
+        presets: [
+          { name: "Small lifestyle increase", description: "Very careful spending", monthlyCost: 300 },
+          { name: "Average lifestyle increase", description: "Normal added cost", monthlyCost: 700 },
+          { name: "Expensive lifestyle", description: "Higher shared lifestyle", monthlyCost: 1500 }
+        ]
+      },
+      child: {
+        label: "Child",
+        icon: "👶",
+        presets: [
+          { name: "Low cost", description: "Family support / lower spending", monthlyCost: 500 },
+          { name: "Average cost", description: "Normal monthly child cost", monthlyCost: 900 },
+          { name: "High cost", description: "Childcare and higher expenses", monthlyCost: 1500 }
+        ]
+      },
+      divorce: {
+        label: "Divorce",
+        icon: "⚖️",
+        presets: [
+          { name: "Low cost", description: "Limited ongoing cost", monthlyCost: 500 },
+          { name: "Average cost", description: "Ongoing legal / support cost", monthlyCost: 1200 },
+          { name: "High cost", description: "Heavy ongoing cost", monthlyCost: 2500 }
+        ]
+      },
+      emergency: {
+        label: "Emergency",
+        icon: "🚑",
+        presets: [
+          { name: "Small emergency", description: "Minor repair or medical bill", monthlyCost: 300 },
+          { name: "Medium emergency", description: "Bigger unexpected expense", monthlyCost: 800 },
+          { name: "Major emergency", description: "Large ongoing emergency cost", monthlyCost: 2000 }
+        ]
+      }
+    };
+
+    let careerPath = "enlisted";
+    let viewMode = "10";
+    let choices = [];
+    let pendingChoice = null;
+    let lastData = [];
+    let lastChart = null;
+
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+
+    const careerSelect = document.getElementById("careerSelect");
+    const viewSelect = document.getElementById("viewSelect");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const incomeStartSummary = document.getElementById("incomeStartSummary");
+    const baseSummary = document.getElementById("baseSummary");
+    const choiceSummary = document.getElementById("choiceSummary");
+    const netSummary = document.getElementById("netSummary");
+    const choiceSummaryLabel = document.getElementById("choiceSummaryLabel");
+    const netSummaryLabel = document.getElementById("netSummaryLabel");
+    const eventsList = document.getElementById("eventsList");
+    const warningBox = document.getElementById("warningBox");
+    const tooltip = document.getElementById("tooltip");
+
+    const costModal = document.getElementById("costModal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalSubtitle = document.getElementById("modalSubtitle");
+    const presetGrid = document.getElementById("presetGrid");
+    const customCostInput = document.getElementById("customCostInput");
+    const customCostBtn = document.getElementById("customCostBtn");
+    const cancelModalBtn = document.getElementById("cancelModalBtn");
+
+    function money(value) {
+      return "$" + Math.round(value).toLocaleString();
+    }
+
+    function getViewEndAge() {
+      if (viewMode === "full") return FULL_END_AGE;
+      return Math.min(FULL_END_AGE, START_AGE + Number(viewMode));
+    }
+
+    function getBaselineExpenses() {
+      return baselineExpensesByCareer[careerPath];
+    }
+
+    function getIncomeAtAge(age) {
+      const path = incomePaths[careerPath];
+
+      if (age <= 35) {
+        return path.startIncome + ((age - START_AGE) * path.yearlyGrowthUntil35);
+      }
+
+      const incomeAt35 = path.startIncome + ((35 - START_AGE) * path.yearlyGrowthUntil35);
+      return incomeAt35 + ((age - 35) * path.yearlyGrowthAfter35);
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+      draw();
+    }
+
+    function ageToX(age, left, width) {
+      const endAge = getViewEndAge();
+      return left + ((age - START_AGE) / (endAge - START_AGE)) * width;
+    }
+
+    function xToAge(x, left, width) {
+      const endAge = getViewEndAge();
+      const pct = (x - left) / width;
+      const age = START_AGE + pct * (endAge - START_AGE);
+      return Math.max(START_AGE, Math.min(endAge, Math.round(age)));
+    }
+
+    function getChoiceExpensesAtAge(age) {
+      return choices
+        .filter(choice => age >= choice.age)
+        .reduce((sum, choice) => sum + choice.monthlyCost, 0);
+    }
+
+    function getData() {
+      const data = [];
+      const endAge = getViewEndAge();
+
+      for (let age = START_AGE; age <= endAge; age++) {
+        const income = getIncomeAtAge(age);
+        const baselineExpenses = getBaselineExpenses();
+        const choiceExpenses = getChoiceExpensesAtAge(age);
+        const afterChoiceExpenses = baselineExpenses + choiceExpenses;
+        const netCash = income - afterChoiceExpenses;
+
+        data.push({
+          age,
+          income,
+          baselineExpenses,
+          afterChoiceExpenses,
+          choiceExpenses,
+          netCash
+        });
+      }
+
+      return data;
+    }
+
+    function getYBounds(data) {
+      const values = [];
+
+      data.forEach(row => {
+        values.push(row.income, row.baselineExpenses, row.afterChoiceExpenses, row.netCash);
+      });
+
+      const minValue = Math.min(...values);
+      const maxValue = Math.max(...values);
+
+      const minY = minValue < 0 ? Math.floor((minValue - 500) / 1000) * 1000 : 0;
+      const maxY = Math.ceil((maxValue + 1000) / 1000) * 1000;
+
+      return { minY, maxY };
+    }
+
+    function drawLine(data, key, color, chart) {
+      ctx.beginPath();
+
+      data.forEach((point, index) => {
+        const x = ageToX(point.age, chart.left, chart.width);
+        const y = chart.bottom - ((point[key] - chart.minY) / (chart.maxY - chart.minY)) * chart.height;
+
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    function drawAgeTicks(chart) {
+      const endAge = getViewEndAge();
+      const span = endAge - START_AGE;
+      let ticks;
+
+      if (span <= 5) ticks = [START_AGE, START_AGE + 1, START_AGE + 2, START_AGE + 3, START_AGE + 4, endAge];
+      else if (span <= 10) ticks = [START_AGE, START_AGE + 2, START_AGE + 4, START_AGE + 6, START_AGE + 8, endAge];
+      else if (span <= 20) ticks = [START_AGE, START_AGE + 5, START_AGE + 10, START_AGE + 15, endAge];
+      else ticks = [START_AGE, 30, 40, 50, endAge];
+
+      ticks = [...new Set(ticks)].filter(age => age >= START_AGE && age <= endAge);
+
+      ticks.forEach(age => {
+        const x = ageToX(age, chart.left, chart.width);
+        ctx.fillStyle = "#4b5563";
+        ctx.font = "14px Arial";
+        ctx.fillText(age, x - 8, chart.bottom + 28);
+      });
+    }
+
+    function draw() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const data = getData();
+      const bounds = getYBounds(data);
+
+      const chart = {
+        left: 60,
+        right: w - 24,
+        top: 24,
+        bottom: h - 48,
+        minY: bounds.minY,
+        maxY: bounds.maxY
+      };
+
+      chart.width = chart.right - chart.left;
+      chart.height = chart.bottom - chart.top;
+
+      lastData = data;
+      lastChart = chart;
+
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.lineWidth = 1;
+
+      const step = chart.maxY > 10000 ? 2000 : 1000;
+
+      for (let yValue = chart.minY; yValue <= chart.maxY; yValue += step) {
+        const y = chart.bottom - ((yValue - chart.minY) / (chart.maxY - chart.minY)) * chart.height;
+
+        ctx.beginPath();
+        ctx.moveTo(chart.left, y);
+        ctx.lineTo(chart.right, y);
+        ctx.stroke();
+
+        ctx.fillStyle = yValue < 0 ? "#dc2626" : "#6b7280";
+        ctx.font = "12px Arial";
+        ctx.fillText(money(yValue), 8, y + 4);
+      }
+
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(chart.left, chart.bottom);
+      ctx.lineTo(chart.right, chart.bottom);
+      ctx.stroke();
+
+      drawAgeTicks(chart);
+
+      drawLine(data, "income", "#16a34a", chart);
+      drawLine(data, "baselineExpenses", "#6b7280", chart);
+      drawLine(data, "afterChoiceExpenses", "#f97316", chart);
+      drawLine(data, "netCash", "#2563eb", chart);
+
+      choices
+        .filter(choice => choice.age <= getViewEndAge())
+        .forEach(choice => {
+          const x = ageToX(choice.age, chart.left, chart.width);
+          const y = chart.top - 4;
+
+          ctx.font = "25px Arial";
+          ctx.fillText(choice.icon, x - 12, y + 24);
+
+          ctx.fillStyle = "#111827";
+          ctx.font = "12px Arial";
+          ctx.fillText(choice.age, x - 8, y + 42);
+        });
+
+      updateSummary(data);
+    }
+
+    function updateSummary(data) {
+      const endAge = getViewEndAge();
+      const finalRow = data[data.length - 1];
+
+      incomeStartSummary.textContent = money(getIncomeAtAge(START_AGE));
+      baseSummary.textContent = money(getBaselineExpenses());
+      choiceSummaryLabel.textContent = "Choice expenses at age " + endAge;
+      netSummaryLabel.textContent = "Net cash at age " + endAge;
+      choiceSummary.textContent = money(finalRow.choiceExpenses);
+      netSummary.textContent = money(finalRow.netCash);
+
+      const firstNegative = data.find(row => row.netCash < 0);
+
+      if (firstNegative) {
+        warningBox.style.display = "block";
+        warningBox.textContent = "⚠️ Cashflow goes negative starting at age " + firstNegative.age + ".";
+      } else {
+        warningBox.style.display = "none";
+        warningBox.textContent = "";
+      }
+
+      if (choices.length === 0) {
+        eventsList.innerHTML = "No choices yet.";
+        return;
+      }
+
+      eventsList.innerHTML = choices
+        .slice()
+        .sort((a, b) => a.age - b.age)
+        .map(choice => {
+          const realIndex = choices.indexOf(choice);
+          const hiddenNote = choice.age > getViewEndAge() ? " — outside current view" : "";
+
+          return `
+            <div class="event-row">
+              <div>${choice.icon} <strong>${choice.label}</strong> at age ${choice.age}${hiddenNote}</div>
+              <div>${choice.costLabel}: +${money(choice.monthlyCost)}/mo</div>
+              <span class="remove" onclick="removeChoice(${realIndex})">remove</span>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function removeChoice(index) {
+      choices.splice(index, 1);
+      draw();
+    }
+
+    function openCostModal(type, age) {
+      const data = choiceData[type];
+
+      pendingChoice = { type, age };
+
+      modalTitle.textContent = data.icon + " " + data.label;
+      modalSubtitle.textContent = "Dropped at age " + age + ". Choose the monthly cost.";
+      customCostInput.value = "";
+
+      presetGrid.innerHTML = data.presets.map((preset, index) => `
+        <button class="preset-btn" onclick="selectPreset(${index})">
+          <div>
+            <strong>${preset.name}</strong>
+            <span>${preset.description}</span>
+          </div>
+          <strong>${money(preset.monthlyCost)}/mo</strong>
+        </button>
+      `).join("");
+
+      costModal.style.display = "flex";
+    }
+
+    function closeCostModal() {
+      costModal.style.display = "none";
+      pendingChoice = null;
+      customCostInput.value = "";
+    }
+
+    function selectPreset(index) {
+      if (!pendingChoice) return;
+
+      const data = choiceData[pendingChoice.type];
+      const preset = data.presets[index];
+
+      choices.push({
+        type: pendingChoice.type,
+        label: data.label,
+        icon: data.icon,
+        age: pendingChoice.age,
+        monthlyCost: preset.monthlyCost,
+        costLabel: preset.name
+      });
+
+      closeCostModal();
+      draw();
+    }
+
+    function useCustomCost() {
+      if (!pendingChoice) return;
+
+      const customCost = Number(customCostInput.value);
+
+      if (!customCost || customCost < 0) {
+        alert("Please enter a valid monthly cost.");
+        return;
+      }
+
+      const data = choiceData[pendingChoice.type];
+
+      choices.push({
+        type: pendingChoice.type,
+        label: data.label,
+        icon: data.icon,
+        age: pendingChoice.age,
+        monthlyCost: customCost,
+        costLabel: "Custom"
+      });
+
+      closeCostModal();
+      draw();
+    }
+
+    function showTooltip(clientX, clientY) {
+      if (!lastChart || !lastData.length) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      if (
+        x < lastChart.left ||
+        x > lastChart.right ||
+        y < lastChart.top ||
+        y > lastChart.bottom
+      ) {
+        tooltip.style.display = "none";
+        return;
+      }
+
+      const age = xToAge(x, lastChart.left, lastChart.width);
+      const row = lastData.find(item => item.age === age);
+
+      if (!row) return;
+
+      tooltip.innerHTML = `
+        <strong>Age ${row.age}</strong><br>
+        Income: ${money(row.income)}<br>
+        Base expenses: ${money(row.baselineExpenses)}<br>
+        After choices: ${money(row.afterChoiceExpenses)}<br>
+        Net cash: ${money(row.netCash)}
+      `;
+
+      tooltip.style.display = "block";
+
+      const tooltipX = Math.min(x + 14, rect.width - 175);
+      const tooltipY = Math.max(y - 90, 8);
+
+      tooltip.style.left = tooltipX + "px";
+      tooltip.style.top = tooltipY + "px";
+    }
+
+    function hideTooltip() {
+      tooltip.style.display = "none";
+    }
+
+    let dragEl = null;
+    let dragType = null;
+
+    document.querySelectorAll(".choice").forEach(choice => {
+      choice.addEventListener("pointerdown", e => {
+        dragType = choice.dataset.type;
+
+        dragEl = choice.cloneNode(true);
+        dragEl.classList.add("dragging");
+        document.body.appendChild(dragEl);
+
+        moveDrag(e.clientX, e.clientY);
+
+        choice.setPointerCapture(e.pointerId);
+      });
+
+      choice.addEventListener("pointermove", e => {
+        if (!dragEl) return;
+        moveDrag(e.clientX, e.clientY);
+      });
+
+      choice.addEventListener("pointerup", e => {
+        if (!dragEl) return;
+
+        const rect = canvas.getBoundingClientRect();
+
+        const insideChart =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom;
+
+        if (insideChart) {
+          const chartLeft = rect.left + 60;
+          const chartWidth = rect.width - 84;
+          const age = xToAge(e.clientX, chartLeft, chartWidth);
+
+          openCostModal(dragType, age);
+        }
+
+        dragEl.remove();
+        dragEl = null;
+        dragType = null;
+      });
+    });
+
+    function moveDrag(x, y) {
+      dragEl.style.left = x + "px";
+      dragEl.style.top = y + "px";
+    }
+
+    careerSelect.addEventListener("change", e => {
+      careerPath = e.target.value;
+      draw();
+    });
+
+    viewSelect.addEventListener("change", e => {
+      viewMode = e.target.value;
+      draw();
+    });
+
+    resetBtn.addEventListener("click", () => {
+      choices = [];
+      draw();
+    });
+
+    customCostBtn.addEventListener("click", useCustomCost);
+    cancelModalBtn.addEventListener("click", closeCostModal);
+
+    costModal.addEventListener("click", e => {
+      if (e.target === costModal) closeCostModal();
+    });
+
+    canvas.addEventListener("mousemove", e => showTooltip(e.clientX, e.clientY));
+    canvas.addEventListener("mouseleave", hideTooltip);
+
+    canvas.addEventListener("touchstart", e => {
+      if (!e.touches.length) return;
+      showTooltip(e.touches[0].clientX, e.touches[0].clientY);
+    });
+
+    canvas.addEventListener("touchmove", e => {
+      if (!e.touches.length) return;
+      showTooltip(e.touches[0].clientX, e.touches[0].clientY);
+    });
+
+    window.addEventListener("resize", resizeCanvas);
+
+    resizeCanvas();
+  </script>
+</body>
+</html>
