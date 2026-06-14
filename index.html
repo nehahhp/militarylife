@@ -37,9 +37,17 @@
 
     .controls {
       display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .control-row {
+      display: flex;
       gap: 10px;
       align-items: center;
       flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     select, input {
@@ -404,6 +412,14 @@
         flex-direction: column;
       }
 
+      .controls {
+        align-items: flex-start;
+      }
+
+      .control-row {
+        justify-content: flex-start;
+      }
+
       canvas {
         height: 360px;
       }
@@ -421,31 +437,40 @@
       </div>
 
       <div class="controls">
-        <label>
-          Career:
-          <select id="careerSelect">
-            <option value="enlisted">Enlisted starter</option>
-            <option value="officer">Officer starter</option>
-          </select>
-        </label>
+        <div class="control-row">
+          <label>
+            Career:
+            <select id="careerSelect">
+              <option value="enlisted">Enlisted</option>
+              <option value="officer">Officer</option>
+            </select>
+          </label>
 
-        <label>
-          Monthly income:
-          <input id="monthlyIncomeInput" type="number" min="0" step="100" />
-        </label>
+          <label>
+            Monthly income:
+            <input id="monthlyIncomeInput" type="number" min="0" step="100" />
+          </label>
+        </div>
 
-        <label>
-          View:
-          <select id="viewSelect">
-            <option value="5">5 years</option>
-            <option value="10" selected>10 years</option>
-            <option value="20">20 years</option>
-            <option value="40">40 years</option>
-            <option value="full">Full career</option>
-          </select>
-        </label>
+        <div class="control-row">
+          <label>
+            Base expenses:
+            <input id="baseExpensesInput" type="number" min="0" step="100" />
+          </label>
 
-        <button id="resetBtn">Reset</button>
+          <label>
+            View:
+            <select id="viewSelect">
+              <option value="5">5 years</option>
+              <option value="10" selected>10 years</option>
+              <option value="20">20 years</option>
+              <option value="40">40 years</option>
+              <option value="full">Full career</option>
+            </select>
+          </label>
+
+          <button id="resetBtn">Reset</button>
+        </div>
       </div>
     </div>
 
@@ -617,13 +642,13 @@
 
     const incomePaths = {
       enlisted: {
-        label: "Enlisted starter",
+        label: "Enlisted",
         startIncome: 2400,
         yearlyGrowthUntil35: 180,
         yearlyGrowthAfter35: 80
       },
       officer: {
-        label: "Officer starter",
+        label: "Officer",
         startIncome: 4800,
         yearlyGrowthUntil35: 250,
         yearlyGrowthAfter35: 100
@@ -706,6 +731,7 @@
 
     let careerPath = "enlisted";
     let customStartIncome = incomePaths.enlisted.startIncome;
+    let customBaseExpenses = baselineExpensesByCareer.enlisted;
     let viewMode = "10";
     let choices = [];
     let pendingChoice = null;
@@ -717,6 +743,7 @@
 
     const careerSelect = document.getElementById("careerSelect");
     const monthlyIncomeInput = document.getElementById("monthlyIncomeInput");
+    const baseExpensesInput = document.getElementById("baseExpensesInput");
     const viewSelect = document.getElementById("viewSelect");
     const resetBtn = document.getElementById("resetBtn");
 
@@ -755,7 +782,7 @@
     }
 
     function getBaselineExpenses() {
-      return baselineExpensesByCareer[careerPath];
+      return customBaseExpenses;
     }
 
     function getSpouseIncomeAtAge(age) {
@@ -1394,13 +1421,21 @@
     careerSelect.addEventListener("change", e => {
       careerPath = e.target.value;
       customStartIncome = incomePaths[careerPath].startIncome;
+      customBaseExpenses = baselineExpensesByCareer[careerPath];
       monthlyIncomeInput.value = customStartIncome;
+      baseExpensesInput.value = customBaseExpenses;
       draw();
     });
 
     monthlyIncomeInput.addEventListener("input", e => {
       const value = Number(e.target.value);
       customStartIncome = value >= 0 ? value : incomePaths[careerPath].startIncome;
+      draw();
+    });
+
+    baseExpensesInput.addEventListener("input", e => {
+      const value = Number(e.target.value);
+      customBaseExpenses = value >= 0 ? value : baselineExpensesByCareer[careerPath];
       draw();
     });
 
@@ -1412,7 +1447,9 @@
     resetBtn.addEventListener("click", () => {
       choices = [];
       customStartIncome = incomePaths[careerPath].startIncome;
+      customBaseExpenses = baselineExpensesByCareer[careerPath];
       monthlyIncomeInput.value = customStartIncome;
+      baseExpensesInput.value = customBaseExpenses;
       draw();
     });
 
@@ -1488,6 +1525,7 @@
     window.addEventListener("resize", resizeCanvas);
 
     monthlyIncomeInput.value = customStartIncome;
+    baseExpensesInput.value = customBaseExpenses;
     resizeCanvas();
   </script>
 </body>
