@@ -271,6 +271,13 @@
       margin-bottom: 14px;
     }
 
+    .duration-note {
+      color: #6b7280;
+      font-size: 13px;
+      margin-top: -4px;
+      margin-bottom: 12px;
+    }
+
     .preset-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -495,7 +502,7 @@
         </div>
 
         <div class="hint">
-          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts. Purple net worth assumes positive savings are invested at 8% per year.
+          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts. Purple net worth assumes positive savings are invested at 8% per year. College, car, child, and emergency costs now end after their default durations.
         </div>
 
         <div class="warning" id="warningBox"></div>
@@ -627,6 +634,8 @@
       college: {
         label: "College",
         icon: "🎓",
+        defaultDurationYears: 4,
+        durationLabel: "4 years",
         presets: [
           { name: "Community college", description: "Lower monthly school cost", monthlyCost: 200 },
           { name: "State school", description: "Medium monthly school cost", monthlyCost: 600 },
@@ -645,6 +654,8 @@
       car: {
         label: "Car",
         icon: "🚗",
+        defaultDurationYears: 5,
+        durationLabel: "5 years",
         presets: [
           { name: "Used car", description: "Lower payment", monthlyCost: 300 },
           { name: "New car", description: "Normal payment", monthlyCost: 600 },
@@ -663,6 +674,8 @@
       child: {
         label: "Child",
         icon: "👶",
+        defaultDurationYears: 18,
+        durationLabel: "18 years",
         presets: [
           { name: "Low cost", description: "Family support / lower spending", monthlyCost: 500 },
           { name: "Average cost", description: "Normal monthly child cost", monthlyCost: 900 },
@@ -681,6 +694,8 @@
       emergency: {
         label: "Emergency",
         icon: "🚑",
+        defaultDurationYears: 1,
+        durationLabel: "1 year",
         presets: [
           { name: "Small emergency", description: "Minor repair or medical bill", monthlyCost: 300 },
           { name: "Medium emergency", description: "Bigger unexpected expense", monthlyCost: 800 },
@@ -806,9 +821,26 @@
       return Math.max(START_AGE, Math.min(endAge, Math.round(age)));
     }
 
+    function getChoiceDurationYears(type) {
+      return choiceData[type]?.defaultDurationYears || null;
+    }
+
+    function isChoiceActiveAtAge(choice, age) {
+      if (age < choice.age) return false;
+
+      if (!choice.durationYears) return true;
+
+      return age < choice.age + choice.durationYears;
+    }
+
+    function getChoiceEndAge(choice) {
+      if (!choice.durationYears) return null;
+      return choice.age + choice.durationYears;
+    }
+
     function getChoiceExpensesAtAge(age) {
       return choices
-        .filter(choice => age >= choice.age)
+        .filter(choice => isChoiceActiveAtAge(choice, age))
         .reduce((sum, choice) => sum + choice.monthlyCost, 0);
     }
 
@@ -1085,11 +1117,16 @@
           const netText = choice.spouseIncome
             ? `<div><strong>Net effect before divorce: ${money(choice.spouseIncome - choice.monthlyCost)}/mo</strong></div>`
             : "";
+          const endAge = getChoiceEndAge(choice);
+          const durationText = endAge
+            ? `<div>Duration: ${choice.durationYears} year${choice.durationYears === 1 ? "" : "s"} — cost ends at age ${endAge}</div>`
+            : `<div>Duration: ongoing</div>`;
 
           return `
             <div class="event-row">
               <div>${choice.icon} <strong>${choice.label}</strong> at age ${choice.age}${hiddenNote}</div>
               <div>${choice.costLabel}: -${money(choice.monthlyCost)}/mo</div>
+              ${durationText}
               ${spouseText}
               ${divorceText}
               ${netText}
@@ -1132,7 +1169,11 @@
       pendingChoice = { type, age };
 
       modalTitle.textContent = data.icon + " " + data.label;
-      modalSubtitle.textContent = "Dropped at age " + age + ". Choose the monthly cost.";
+      const durationText = data.defaultDurationYears
+        ? " This cost will last for " + data.durationLabel + "."
+        : " This cost will continue until removed or changed by another choice.";
+
+      modalSubtitle.textContent = "Dropped at age " + age + ". Choose the monthly cost." + durationText;
       customCostInput.value = "";
       spouseIncomeInput.value = "";
       spouseIncomeSection.style.display = type === "marriage" ? "block" : "none";
@@ -1175,7 +1216,8 @@
         age: pendingChoice.age,
         monthlyCost: preset.monthlyCost,
         costLabel: preset.name,
-        spouseIncome
+        spouseIncome,
+        durationYears: getChoiceDurationYears(pendingChoice.type)
       });
 
       closeCostModal();
@@ -1205,7 +1247,8 @@
         age: pendingChoice.age,
         monthlyCost: customCost,
         costLabel: "Custom",
-        spouseIncome
+        spouseIncome,
+        durationYears: getChoiceDurationYears(pendingChoice.type)
       });
 
       closeCostModal();
