@@ -403,6 +403,75 @@
       font-weight: bold;
     }
 
+    .scenario-panel {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .scenario-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .scenario-note {
+      color: #6b7280;
+      font-size: 12px;
+      line-height: 1.4;
+      margin-bottom: 10px;
+    }
+
+    .scenario-save-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .scenario-save-row input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .scenario-btn {
+      padding: 7px 9px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    .scenario-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .scenario-row {
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 8px;
+      font-size: 13px;
+    }
+
+    .scenario-row strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .scenario-meta {
+      color: #6b7280;
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+
+    .scenario-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .danger {
+      background: #dc2626;
+    }
+
     @media (max-width: 900px) {
       .main-layout {
         grid-template-columns: 1fr;
@@ -595,6 +664,18 @@
 
         <div class="events-title">Choices Added</div>
         <div id="eventsList">No choices yet.</div>
+
+        <div class="scenario-panel">
+          <div class="scenario-title">Saved Scenarios</div>
+          <div class="scenario-note">
+            Save your current career, income, base expenses, view, and life choices. Scenarios are stored in this browser.
+          </div>
+          <div class="scenario-save-row">
+            <input id="scenarioNameInput" type="text" placeholder="Example: Enlisted with college" />
+            <button class="scenario-btn" id="saveScenarioBtn">Save</button>
+          </div>
+          <div class="scenario-list" id="savedScenariosList">No saved scenarios yet.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -771,6 +852,10 @@
     const spouseIncomeInput = document.getElementById("spouseIncomeInput");
     const customCostBtn = document.getElementById("customCostBtn");
     const cancelModalBtn = document.getElementById("cancelModalBtn");
+    const scenarioNameInput = document.getElementById("scenarioNameInput");
+    const saveScenarioBtn = document.getElementById("saveScenarioBtn");
+    const savedScenariosList = document.getElementById("savedScenariosList");
+    const SCENARIO_STORAGE_KEY = "lifeChoicesSavedScenariosV1";
 
     function money(value) {
       return "$" + Math.round(value).toLocaleString();
@@ -1185,6 +1270,110 @@
       `).join("");
     }
 
+    function getSavedScenarios() {
+      try {
+        return JSON.parse(localStorage.getItem(SCENARIO_STORAGE_KEY)) || [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function storeSavedScenarios(scenarios) {
+      localStorage.setItem(SCENARIO_STORAGE_KEY, JSON.stringify(scenarios));
+    }
+
+    function getCurrentScenarioSnapshot(name) {
+      const data = getData();
+      const finalRow = data[data.length - 1];
+
+      return {
+        id: Date.now().toString(),
+        name,
+        savedAt: new Date().toLocaleString(),
+        careerPath,
+        customStartIncome,
+        customBaseExpenses,
+        viewMode,
+        choices: choices.map(choice => ({ ...choice })),
+        summary: {
+          endAge: getViewEndAge(),
+          projectedNetWorth: finalRow.projectedNetWorth,
+          lifetimeIncome: finalRow.lifetimeIncome,
+          lifetimeExpenses: finalRow.lifetimeExpenses,
+          finalNetCash: finalRow.netCash
+        }
+      };
+    }
+
+    function saveCurrentScenario() {
+      const name = scenarioNameInput.value.trim();
+
+      if (!name) {
+        alert("Please enter a scenario name before saving.");
+        return;
+      }
+
+      const scenarios = getSavedScenarios();
+      scenarios.unshift(getCurrentScenarioSnapshot(name));
+      storeSavedScenarios(scenarios);
+
+      scenarioNameInput.value = "";
+      renderSavedScenarios();
+    }
+
+    function loadScenario(id) {
+      const scenario = getSavedScenarios().find(item => item.id === id);
+      if (!scenario) return;
+
+      careerPath = scenario.careerPath || "enlisted";
+      customStartIncome = Number(scenario.customStartIncome) || incomePaths[careerPath].startIncome;
+      customBaseExpenses = Number(scenario.customBaseExpenses) || baselineExpensesByCareer[careerPath];
+      viewMode = scenario.viewMode || "10";
+      choices = Array.isArray(scenario.choices) ? scenario.choices.map(choice => ({ ...choice })) : [];
+
+      careerSelect.value = careerPath;
+      monthlyIncomeInput.value = customStartIncome;
+      baseExpensesInput.value = customBaseExpenses;
+      viewSelect.value = viewMode;
+
+      draw();
+    }
+
+    function deleteScenario(id) {
+      const scenarios = getSavedScenarios().filter(item => item.id !== id);
+      storeSavedScenarios(scenarios);
+      renderSavedScenarios();
+    }
+
+    function renderSavedScenarios() {
+      const scenarios = getSavedScenarios();
+
+      if (!scenarios.length) {
+        savedScenariosList.innerHTML = "No saved scenarios yet.";
+        return;
+      }
+
+      savedScenariosList.innerHTML = scenarios.map(scenario => {
+        const choiceCount = Array.isArray(scenario.choices) ? scenario.choices.length : 0;
+        const summary = scenario.summary || {};
+        const endAge = summary.endAge || "?";
+        const projectedNetWorth = typeof summary.projectedNetWorth === "number" ? money(summary.projectedNetWorth) : "N/A";
+
+        return `
+          <div class="scenario-row">
+            <strong>${scenario.name}</strong>
+            <div class="scenario-meta">
+              ${scenario.savedAt || "Saved scenario"} • ${choiceCount} choice${choiceCount === 1 ? "" : "s"} • Net worth at age ${endAge}: ${projectedNetWorth}
+            </div>
+            <div class="scenario-actions">
+              <button class="scenario-btn" onclick="loadScenario('${scenario.id}')">Load</button>
+              <button class="scenario-btn danger" onclick="deleteScenario('${scenario.id}')">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
     function removeChoice(index) {
       choices.splice(index, 1);
       draw();
@@ -1455,6 +1644,10 @@
 
     customCostBtn.addEventListener("click", useCustomCost);
     cancelModalBtn.addEventListener("click", closeCostModal);
+    saveScenarioBtn.addEventListener("click", saveCurrentScenario);
+    scenarioNameInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") saveCurrentScenario();
+    });
 
     costModal.addEventListener("click", e => {
       if (e.target === costModal) closeCostModal();
@@ -1526,6 +1719,7 @@
 
     monthlyIncomeInput.value = customStartIncome;
     baseExpensesInput.value = customBaseExpenses;
+    renderSavedScenarios();
     resizeCanvas();
   </script>
 </body>
