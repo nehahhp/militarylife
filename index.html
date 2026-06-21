@@ -182,14 +182,55 @@
 
     .warning {
       margin-top: 8px;
-      padding: 10px;
-      background: #fef2f2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
-      border-radius: 10px;
+      padding: 12px;
+      background: #fff7ed;
+      color: #7c2d12;
+      border: 1px solid #fed7aa;
+      border-radius: 12px;
       display: none;
-      font-weight: bold;
       font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .risk-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 8px 0;
+    }
+
+    .risk-item + .risk-item {
+      border-top: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .risk-icon {
+      font-size: 20px;
+      line-height: 1;
+      margin-top: 1px;
+    }
+
+    .risk-title {
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+
+    .risk-detail {
+      color: #374151;
+      font-weight: normal;
+    }
+
+    .risk-critical {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      color: #991b1b;
+    }
+
+    .risk-critical .risk-title {
+      color: #991b1b;
+    }
+
+    .risk-warning .risk-title {
+      color: #c2410c;
     }
 
     .summary-grid {
@@ -472,6 +513,147 @@
       background: #dc2626;
     }
 
+
+    .print-only {
+      display: none;
+    }
+
+    .report-button {
+      background: #2563eb;
+    }
+
+    @media print {
+      body {
+        background: white;
+        color: #111827;
+      }
+
+      .app {
+        display: none;
+      }
+
+      .print-only {
+        display: block;
+      }
+
+      .report-page {
+        padding: 24px;
+        font-family: Arial, sans-serif;
+      }
+
+      .report-header {
+        border-bottom: 2px solid #111827;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+      }
+
+      .report-header h1 {
+        font-size: 24px;
+        margin: 0 0 6px 0;
+      }
+
+      .report-subtitle {
+        color: #4b5563;
+        font-size: 13px;
+      }
+
+      .report-section {
+        margin-top: 18px;
+        break-inside: avoid;
+      }
+
+      .report-section h2 {
+        font-size: 16px;
+        margin: 0 0 8px 0;
+        border-bottom: 1px solid #d1d5db;
+        padding-bottom: 4px;
+      }
+
+      .report-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+
+      .report-metric {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 8px;
+      }
+
+      .report-metric .label {
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: normal;
+      }
+
+      .report-metric .value {
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 4px;
+      }
+
+      .report-chart {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 330px;
+        object-fit: contain;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: white;
+      }
+
+      .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+
+      .report-table th,
+      .report-table td {
+        border: 1px solid #d1d5db;
+        padding: 5px 6px;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .report-table th:first-child,
+      .report-table td:first-child,
+      .report-table th:nth-child(2),
+      .report-table td:nth-child(2) {
+        text-align: left;
+      }
+
+      .report-table th {
+        background: #f3f4f6;
+      }
+
+      .report-warning {
+        border: 1px solid #fed7aa;
+        background: #fff7ed;
+        color: #7c2d12;
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .report-warning .risk-item {
+        padding: 6px 0;
+      }
+
+      .report-warning .risk-critical-title {
+        color: #991b1b;
+        font-weight: bold;
+      }
+
+      .report-warning .risk-warning-title {
+        color: #c2410c;
+        font-weight: bold;
+      }
+    }
+
     @media (max-width: 900px) {
       .main-layout {
         grid-template-columns: 1fr;
@@ -501,7 +683,7 @@
       <div>
         <h1>Life Choices Cashflow Visualizer</h1>
         <div class="subtitle">
-          Drag a life choice onto the graph. Pick a cost. See how monthly cashflow, invested savings, and projected net worth change from age 18 onward.
+          Drag a life choice onto the graph. Pick a cost. See how monthly cashflow, invested savings, and projected investment balance change from age 18 onward.
         </div>
       </div>
 
@@ -539,6 +721,7 @@
           </label>
 
           <button id="resetBtn">Reset</button>
+          <button class="report-button" id="printReportBtn">Print Report</button>
         </div>
       </div>
     </div>
@@ -592,11 +775,11 @@
           <span><i class="dot base"></i> Base Expenses</span>
           <span><i class="dot choice-expense"></i> After Choices</span>
           <span><i class="dot net"></i> Monthly Net Cash</span>
-          <span><i class="dot portfolio"></i> Projected Net Worth</span>
+          <span><i class="dot portfolio"></i> Investment Balance</span>
         </div>
 
         <div class="hint">
-          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts. Purple net worth assumes positive savings are invested at 8% per year. College, car, child, and emergency costs now end after their default durations.
+          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts. Purple investment balance uses the right-side axis and shows accumulated savings plus investment growth at 8% per year. It does not include home equity, car value, pension value, or other assets. College, car, child, and emergency costs now end after their default durations.
         </div>
 
         <div class="warning" id="warningBox"></div>
@@ -604,7 +787,7 @@
         <div class="table-card">
           <div class="table-title">
             <span>Annual Snapshot</span>
-            <span class="table-note">Income, expenses, net cash, and projected net worth</span>
+            <span class="table-note">Income, expenses, net cash, and projected investment balance</span>
           </div>
           <div class="table-scroll">
             <table>
@@ -615,7 +798,7 @@
                   <th>Annual Expenses</th>
                   <th>Annual Net</th>
                   <th>Investment Growth</th>
-                  <th>Projected Net Worth</th>
+                  <th>Projected Investment Balance</th>
                 </tr>
               </thead>
               <tbody id="annualTableBody"></tbody>
@@ -647,7 +830,7 @@
           </div>
 
           <div class="summary-card">
-            <div class="small" id="netWorthSummaryLabel">Projected net worth</div>
+            <div class="small" id="netWorthSummaryLabel">Projected investment balance</div>
             <div class="big" id="netWorthSummary">$0</div>
           </div>
 
@@ -679,6 +862,8 @@
       </div>
     </div>
   </div>
+
+  <div class="print-only" id="printReportContainer"></div>
 
   <div class="modal-backdrop" id="costModal">
     <div class="modal">
@@ -855,6 +1040,8 @@
     const scenarioNameInput = document.getElementById("scenarioNameInput");
     const saveScenarioBtn = document.getElementById("saveScenarioBtn");
     const savedScenariosList = document.getElementById("savedScenariosList");
+    const printReportBtn = document.getElementById("printReportBtn");
+    const printReportContainer = document.getElementById("printReportContainer");
     const SCENARIO_STORAGE_KEY = "lifeChoicesSavedScenariosV1";
 
     function money(value) {
@@ -1079,7 +1266,7 @@
 
       ctx.fillStyle = "#7c3aed";
       ctx.font = "12px Arial";
-      ctx.fillText("Net worth", chart.right + 8, chart.top - 6);
+      ctx.fillText("Investment Balance", chart.right + 8, chart.top - 10);
     }
 
     function drawAgeTicks(chart) {
@@ -1115,7 +1302,7 @@
 
       const chart = {
         left: 60,
-        right: w - 92,
+        right: w - 150,
         top: 24,
         bottom: h - 48,
         minY: bounds.minY,
@@ -1182,6 +1369,94 @@
       updateSummary(data);
     }
 
+    function getRiskInfo(data) {
+      const firstAnnualDeficit = data.find(row => row.annualNetCash < 0);
+      const firstNegativeBalance = data.find(row => row.projectedNetWorth < 0);
+
+      return {
+        firstAnnualDeficit,
+        firstNegativeBalance
+      };
+    }
+
+    function buildRiskWarningHtml(data) {
+      const { firstAnnualDeficit, firstNegativeBalance } = getRiskInfo(data);
+
+      if (!firstAnnualDeficit && !firstNegativeBalance) {
+        return "";
+      }
+
+      const parts = [];
+
+      if (firstNegativeBalance) {
+        parts.push(`
+          <div class="risk-item">
+            <div class="risk-icon">🚨</div>
+            <div>
+              <div class="risk-title">CRITICAL: Investment balance becomes negative at age ${firstNegativeBalance.age}.</div>
+              <div class="risk-detail">
+                At this point, the projected investment balance is ${money(firstNegativeBalance.projectedNetWorth)}.
+                This means accumulated savings/investments have been depleted and the plan would require borrowing or major changes to income, expenses, or choices.
+              </div>
+            </div>
+          </div>
+        `);
+      }
+
+      if (firstAnnualDeficit) {
+        parts.push(`
+          <div class="risk-item">
+            <div class="risk-icon">⚠️</div>
+            <div>
+              <div class="risk-title">WARNING: Annual cashflow deficit starts at age ${firstAnnualDeficit.age}.</div>
+              <div class="risk-detail">
+                The shortfall that year is ${money(Math.abs(firstAnnualDeficit.annualNetCash))}.
+                This does not automatically mean financial failure, but it must be covered by borrowing, reducing expenses, extra income, or drawing from accumulated savings/investments.
+              </div>
+            </div>
+          </div>
+        `);
+      }
+
+      return parts.join("");
+    }
+
+    function buildReportRiskWarningHtml(data) {
+      const { firstAnnualDeficit, firstNegativeBalance } = getRiskInfo(data);
+
+      if (!firstAnnualDeficit && !firstNegativeBalance) {
+        return "No annual cashflow deficit or negative investment balance in the selected view.";
+      }
+
+      const parts = [];
+
+      if (firstNegativeBalance) {
+        parts.push(`
+          <div class="risk-item">
+            <div class="risk-icon">🚨</div>
+            <div>
+              <div class="risk-critical-title">CRITICAL: Investment balance becomes negative at age ${firstNegativeBalance.age}.</div>
+              <div>At this point, the projected investment balance is ${escapeHtml(money(firstNegativeBalance.projectedNetWorth))}. This means accumulated savings/investments have been depleted and the plan would require borrowing or major changes.</div>
+            </div>
+          </div>
+        `);
+      }
+
+      if (firstAnnualDeficit) {
+        parts.push(`
+          <div class="risk-item">
+            <div class="risk-icon">⚠️</div>
+            <div>
+              <div class="risk-warning-title">WARNING: Annual cashflow deficit starts at age ${firstAnnualDeficit.age}.</div>
+              <div>The shortfall that year is ${escapeHtml(money(Math.abs(firstAnnualDeficit.annualNetCash)))}. This must be covered by borrowing, reducing expenses, extra income, or drawing from accumulated savings/investments.</div>
+            </div>
+          </div>
+        `);
+      }
+
+      return parts.join("");
+    }
+
     function updateSummary(data) {
       const endAge = getViewEndAge();
       const finalRow = data[data.length - 1];
@@ -1192,20 +1467,24 @@
       netSummaryLabel.textContent = "Net cash at age " + endAge;
       choiceSummary.textContent = money(finalRow.choiceExpenses);
       netSummary.textContent = money(finalRow.netCash);
-      netWorthSummaryLabel.textContent = "Projected net worth at age " + endAge;
+      netWorthSummaryLabel.textContent = "Projected investment balance at age " + endAge;
       netWorthSummary.textContent = money(finalRow.projectedNetWorth);
       lifetimeIncomeSummary.textContent = money(finalRow.lifetimeIncome);
       lifetimeExpensesSummary.textContent = money(finalRow.lifetimeExpenses);
       updateAnnualTable(data);
 
-      const firstNegative = data.find(row => row.netCash < 0);
+      const riskWarningHtml = buildRiskWarningHtml(data);
+      const hasCriticalRisk = getRiskInfo(data).firstNegativeBalance;
 
-      if (firstNegative) {
+      if (riskWarningHtml) {
         warningBox.style.display = "block";
-        warningBox.textContent = "⚠️ Cashflow goes negative starting at age " + firstNegative.age + ".";
+        warningBox.classList.toggle("risk-critical", Boolean(hasCriticalRisk));
+        warningBox.classList.toggle("risk-warning", !hasCriticalRisk);
+        warningBox.innerHTML = riskWarningHtml;
       } else {
         warningBox.style.display = "none";
-        warningBox.textContent = "";
+        warningBox.classList.remove("risk-critical", "risk-warning");
+        warningBox.innerHTML = "";
       }
 
       if (choices.length === 0) {
@@ -1363,7 +1642,7 @@
           <div class="scenario-row">
             <strong>${scenario.name}</strong>
             <div class="scenario-meta">
-              ${scenario.savedAt || "Saved scenario"} • ${choiceCount} choice${choiceCount === 1 ? "" : "s"} • Net worth at age ${endAge}: ${projectedNetWorth}
+              ${scenario.savedAt || "Saved scenario"} • ${choiceCount} choice${choiceCount === 1 ? "" : "s"} • Investment balance at age ${endAge}: ${projectedNetWorth}
             </div>
             <div class="scenario-actions">
               <button class="scenario-btn" onclick="loadScenario('${scenario.id}')">Load</button>
@@ -1372,6 +1651,197 @@
           </div>
         `;
       }).join("");
+    }
+
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function buildReportMetric(label, value) {
+      return `
+        <div class="report-metric">
+          <div class="label">${escapeHtml(label)}</div>
+          <div class="value">${escapeHtml(value)}</div>
+        </div>
+      `;
+    }
+
+
+    function buildChoicesReportRows() {
+      if (!choices.length) {
+        return `<tr><td colspan="7">No choices added.</td></tr>`;
+      }
+
+      return choices
+        .slice()
+        .sort((a, b) => a.age - b.age)
+        .map(choice => {
+          const endAge = getChoiceEndAge(choice);
+          const duration = endAge
+            ? `${choice.durationYears} year${choice.durationYears === 1 ? "" : "s"}, ends at age ${endAge}`
+            : "Ongoing";
+          const spouseIncome = choice.spouseIncome ? money(choice.spouseIncome) + "/mo" : "—";
+          const note = choice.type === "divorce"
+            ? "Removes active spouse income"
+            : choice.spouseIncome
+              ? "Spouse income included until divorce"
+              : "";
+
+          return `
+            <tr>
+              <td>${escapeHtml(choice.age)}</td>
+              <td>${escapeHtml(choice.label)}</td>
+              <td>${escapeHtml(choice.costLabel)}</td>
+              <td>${escapeHtml(money(choice.monthlyCost) + "/mo")}</td>
+              <td>${escapeHtml(duration)}</td>
+              <td>${escapeHtml(spouseIncome)}</td>
+              <td>${escapeHtml(note)}</td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    function buildAnnualReportRows(data) {
+      return data.map(row => `
+        <tr>
+          <td>${row.age}</td>
+          <td>${money(row.annualIncome)}</td>
+          <td>${money(row.annualExpenses)}</td>
+          <td>${money(row.annualNetCash)}</td>
+          <td>${money(row.investmentGrowth)}</td>
+          <td>${money(row.projectedNetWorth)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function getPrintableChartImage() {
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = canvas.width;
+      exportCanvas.height = canvas.height;
+
+      const exportCtx = exportCanvas.getContext("2d");
+      exportCtx.fillStyle = "#ffffff";
+      exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+      exportCtx.drawImage(canvas, 0, 0);
+
+      return exportCanvas.toDataURL("image/png");
+    }
+
+    function printWhenReportImageIsReady() {
+      const reportImage = printReportContainer.querySelector(".report-chart");
+
+      if (!reportImage) {
+        window.print();
+        return;
+      }
+
+      const runPrint = () => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => window.print());
+        });
+      };
+
+      if (reportImage.complete && reportImage.naturalWidth > 0) {
+        runPrint();
+      } else {
+        reportImage.onload = runPrint;
+        reportImage.onerror = runPrint;
+      }
+    }
+
+    function printReport() {
+      draw();
+
+      const data = getData();
+      const finalRow = data[data.length - 1];
+      const endAge = getViewEndAge();
+      const chartImage = getPrintableChartImage();
+      const generatedAt = new Date().toLocaleString();
+      const careerLabel = incomePaths[careerPath].label;
+      const reportTitle = scenarioNameInput.value.trim() || "Life Choices Cashflow Report";
+      const warningHtml = buildReportRiskWarningHtml(data);
+      const hasRiskWarning = Boolean(getRiskInfo(data).firstAnnualDeficit || getRiskInfo(data).firstNegativeBalance);
+
+      const metricsHtml = [
+        buildReportMetric("Career", careerLabel),
+        buildReportMetric("Starting monthly income", money(customStartIncome)),
+        buildReportMetric("Base monthly expenses", money(customBaseExpenses)),
+        buildReportMetric("Selected view", endAge === FULL_END_AGE ? "Full career to age " + FULL_END_AGE : "To age " + endAge),
+        buildReportMetric("Projected investment balance", money(finalRow.projectedNetWorth)),
+        buildReportMetric("Final monthly net cash", money(finalRow.netCash)),
+        buildReportMetric("Lifetime income", money(finalRow.lifetimeIncome)),
+        buildReportMetric("Lifetime expenses", money(finalRow.lifetimeExpenses))
+      ].join("");
+
+      printReportContainer.innerHTML = `
+        <div class="report-page">
+          <div class="report-header">
+            <h1>${escapeHtml(reportTitle)}</h1>
+            <div class="report-subtitle">
+              Generated ${escapeHtml(generatedAt)} from Life Choices Cashflow Visualizer. The projected investment balance shows accumulated savings plus investment growth, not full net worth. Positive savings are assumed to be invested at ${Math.round(INVESTMENT_RETURN * 100)}% per year.
+            </div>
+          </div>
+
+          <div class="report-section">
+            <h2>Scenario Summary</h2>
+            <div class="report-grid">${metricsHtml}</div>
+          </div>
+
+          <div class="report-section">
+            <h2>Risk Summary</h2>
+            <div class="${hasRiskWarning ? "report-warning" : ""}">${warningHtml}</div>
+          </div>
+
+          <div class="report-section">
+            <h2>Chart</h2>
+            <img class="report-chart" src="${chartImage}" alt="Cashflow chart" />
+          </div>
+
+          <div class="report-section">
+            <h2>Choices Made</h2>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Age</th>
+                  <th>Choice</th>
+                  <th>Cost Type</th>
+                  <th>Monthly Cost</th>
+                  <th>Duration</th>
+                  <th>Spouse Income</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>${buildChoicesReportRows()}</tbody>
+            </table>
+          </div>
+
+          <div class="report-section">
+            <h2>Annual Snapshot</h2>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Age</th>
+                  <th>Annual Income</th>
+                  <th>Annual Expenses</th>
+                  <th>Annual Net</th>
+                  <th>Investment Growth</th>
+                  <th>Projected Investment Balance</th>
+                </tr>
+              </thead>
+              <tbody>${buildAnnualReportRows(data)}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      printWhenReportImageIsReady();
     }
 
     function removeChoice(index) {
@@ -1502,7 +1972,7 @@
         Monthly net cash: ${money(row.netCash)}<br>
         Annual net cash: ${money(row.annualNetCash)}<br>
         Investment growth: ${money(row.investmentGrowth)}<br>
-        Projected net worth: ${money(row.projectedNetWorth)}
+        Projected investment balance: ${money(row.projectedNetWorth)}
       `;
 
       tooltip.style.display = "block";
@@ -1590,7 +2060,7 @@
 
         if (insideChart) {
           const chartLeft = rect.left + 60;
-          const chartWidth = rect.width - 84;
+          const chartWidth = rect.width - 210;
           const age = xToAge(e.clientX, chartLeft, chartWidth);
 
           openCostModal(dragType, age);
@@ -1645,6 +2115,7 @@
     customCostBtn.addEventListener("click", useCustomCost);
     cancelModalBtn.addEventListener("click", closeCostModal);
     saveScenarioBtn.addEventListener("click", saveCurrentScenario);
+    printReportBtn.addEventListener("click", printReport);
     scenarioNameInput.addEventListener("keydown", e => {
       if (e.key === "Enter") saveCurrentScenario();
     });
