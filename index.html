@@ -233,6 +233,122 @@
       color: #c2410c;
     }
 
+
+    .assumptions-card {
+      margin-top: 12px;
+      padding: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      font-size: 13px;
+      color: #374151;
+    }
+
+    .assumptions-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-weight: bold;
+      color: #111827;
+    }
+
+    .assumptions-toggle {
+      color: #2563eb;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .assumptions-body {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .assumptions-card.open .assumptions-body {
+      display: block;
+    }
+
+    .assumptions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .assumption-item {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 8px;
+      line-height: 1.35;
+    }
+
+    .assumption-item strong {
+      display: block;
+      color: #111827;
+      margin-bottom: 2px;
+      font-size: 12px;
+    }
+
+    .assumptions-note {
+      margin-top: 8px;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+
+    .mentor-card {
+      margin-top: 12px;
+      padding: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      font-size: 13px;
+      color: #374151;
+    }
+
+    .mentor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-weight: bold;
+      color: #111827;
+    }
+
+    .mentor-toggle {
+      color: #2563eb;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .mentor-body {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .mentor-card.open .mentor-body {
+      display: block;
+    }
+
+    .mentor-intro {
+      color: #6b7280;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+
+    .mentor-list {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.45;
+    }
+
+    .mentor-list li {
+      margin-bottom: 7px;
+    }
+
     .summary-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -784,6 +900,32 @@
 
         <div class="warning" id="warningBox"></div>
 
+        <div class="assumptions-card open" id="assumptionsPanel">
+          <div class="assumptions-header" id="assumptionsHeader">
+            <span>Model Assumptions</span>
+            <span class="assumptions-toggle" id="assumptionsToggle">hide</span>
+          </div>
+          <div class="assumptions-body">
+            <div class="assumptions-grid" id="assumptionsGrid"></div>
+            <div class="assumptions-note">
+              These assumptions are simplified for education and discussion. The tool is designed to show direction and tradeoffs, not to provide financial advice or exact military compensation estimates.
+            </div>
+          </div>
+        </div>
+
+        <div class="mentor-card open" id="mentorPanel">
+          <div class="mentor-header" id="mentorHeader">
+            <span>Mentor Report / Discussion Questions</span>
+            <span class="mentor-toggle" id="mentorToggle">hide</span>
+          </div>
+          <div class="mentor-body">
+            <div class="mentor-intro">
+              Use these questions to turn the graph into a conversation about tradeoffs, timing, risk, and better choices.
+            </div>
+            <ol class="mentor-list" id="mentorQuestionsList"></ol>
+          </div>
+        </div>
+
         <div class="table-card">
           <div class="table-title">
             <span>Annual Snapshot</span>
@@ -1026,6 +1168,14 @@
     const annualTableBody = document.getElementById("annualTableBody");
     const eventsList = document.getElementById("eventsList");
     const warningBox = document.getElementById("warningBox");
+    const assumptionsPanel = document.getElementById("assumptionsPanel");
+    const assumptionsHeader = document.getElementById("assumptionsHeader");
+    const assumptionsToggle = document.getElementById("assumptionsToggle");
+    const assumptionsGrid = document.getElementById("assumptionsGrid");
+    const mentorPanel = document.getElementById("mentorPanel");
+    const mentorHeader = document.getElementById("mentorHeader");
+    const mentorToggle = document.getElementById("mentorToggle");
+    const mentorQuestionsList = document.getElementById("mentorQuestionsList");
     const tooltip = document.getElementById("tooltip");
 
     const costModal = document.getElementById("costModal");
@@ -1457,6 +1607,140 @@
       return parts.join("");
     }
 
+
+    function getDurationSummary() {
+      const durationItems = Object.values(choiceData)
+        .filter(item => item.defaultDurationYears)
+        .map(item => item.label + ": " + item.defaultDurationYears + " year" + (item.defaultDurationYears === 1 ? "" : "s"));
+
+      return durationItems.join("; ");
+    }
+
+    function buildAssumptionsItems() {
+      const path = incomePaths[careerPath];
+
+      return [
+        {
+          title: "Career income path",
+          text: path.label + " starts at " + money(customStartIncome) + "/mo, then grows by " + money(path.yearlyGrowthUntil35) + "/mo each year until age 35 and " + money(path.yearlyGrowthAfter35) + "/mo each year after age 35."
+        },
+        {
+          title: "Base expenses",
+          text: "Base monthly expenses are set to " + money(customBaseExpenses) + "/mo and stay constant unless edited by the user."
+        },
+        {
+          title: "Life choice costs",
+          text: "Each dropped choice adds its monthly cost starting at the selected age. Some choices have fixed durations; others continue until removed or changed."
+        },
+        {
+          title: "Default durations",
+          text: getDurationSummary() + ". House, marriage, and divorce costs are treated as ongoing."
+        },
+        {
+          title: "Spouse income",
+          text: "Spouse income, if entered during marriage, is added from the marriage age and removed by a later divorce choice."
+        },
+        {
+          title: "Investment balance",
+          text: "Positive annual cashflow is assumed to be invested at " + Math.round(INVESTMENT_RETURN * 100) + "% per year. Negative annual cashflow reduces the projected investment balance."
+        },
+        {
+          title: "Not full net worth",
+          text: "The investment balance does not include home equity, car value, pension value, Social Security, taxes, inflation, debt interest, or investment volatility."
+        },
+        {
+          title: "Educational purpose",
+          text: "This model is meant to support mentoring conversations and what-if planning, not to replace personalized financial advice."
+        }
+      ];
+    }
+
+    function buildAssumptionsHtml() {
+      return buildAssumptionsItems().map(item => `
+        <div class="assumption-item">
+          <strong>${escapeHtml(item.title)}</strong>
+          <div>${escapeHtml(item.text)}</div>
+        </div>
+      `).join("");
+    }
+
+    function updateAssumptionsPanel() {
+      assumptionsGrid.innerHTML = buildAssumptionsHtml();
+    }
+
+    function getLargestChoiceByMonthlyCost() {
+      if (!choices.length) return null;
+
+      return choices
+        .slice()
+        .sort((a, b) => b.monthlyCost - a.monthlyCost)[0];
+    }
+
+    function buildMentorQuestions(data) {
+      const endAge = getViewEndAge();
+      const finalRow = data[data.length - 1];
+      const riskInfo = getRiskInfo(data);
+      const biggestChoice = getLargestChoiceByMonthlyCost();
+      const questions = [];
+
+      questions.push(
+        "What life choice or spending decision seems to create the biggest change in cashflow, and why?"
+      );
+
+      if (biggestChoice) {
+        questions.push(
+          "The largest monthly choice cost is " + biggestChoice.label + " at age " + biggestChoice.age + " (" + money(biggestChoice.monthlyCost) + "/mo). What would happen if this cost were reduced, delayed, or planned for earlier?"
+        );
+      } else {
+        questions.push(
+          "Before adding life choices, does the starting income and base expense assumption feel realistic for the person being mentored?"
+        );
+      }
+
+      if (riskInfo.firstAnnualDeficit) {
+        questions.push(
+          "Annual cashflow becomes negative at age " + riskInfo.firstAnnualDeficit.age + ". What could the person change before that age: lower expenses, increase income, delay a choice, or build more savings?"
+        );
+      } else {
+        questions.push(
+          "There is no annual cashflow deficit in this view. What habits would help protect that positive cashflow over time?"
+        );
+      }
+
+      if (riskInfo.firstNegativeBalance) {
+        questions.push(
+          "The investment balance becomes negative at age " + riskInfo.firstNegativeBalance.age + ". What emergency plan or decision change could prevent savings from being fully depleted?"
+        );
+      } else {
+        questions.push(
+          "The investment balance does not go negative in this view. What is one realistic emergency or major life event that could still put the plan under pressure?"
+        );
+      }
+
+      questions.push(
+        "At age " + endAge + ", the projected investment balance is " + money(finalRow.projectedNetWorth) + ". Does this outcome support the person's long-term goals, or should the scenario be adjusted?"
+      );
+
+      questions.push(
+        "Which single change would improve the scenario the most while still feeling realistic for a military family?"
+      );
+
+      return questions;
+    }
+
+    function buildMentorQuestionsHtml(data, forPrint = false) {
+      const questions = buildMentorQuestions(data);
+
+      return questions.map(question => {
+        const safeQuestion = escapeHtml(question);
+        return forPrint ? "<li>" + safeQuestion + "</li>" : "<li>" + safeQuestion + "</li>";
+      }).join("");
+    }
+
+    function updateMentorQuestions(data) {
+      mentorQuestionsList.innerHTML = buildMentorQuestionsHtml(data);
+    }
+
     function updateSummary(data) {
       const endAge = getViewEndAge();
       const finalRow = data[data.length - 1];
@@ -1472,6 +1756,8 @@
       lifetimeIncomeSummary.textContent = money(finalRow.lifetimeIncome);
       lifetimeExpensesSummary.textContent = money(finalRow.lifetimeExpenses);
       updateAnnualTable(data);
+      updateAssumptionsPanel();
+      updateMentorQuestions(data);
 
       const riskWarningHtml = buildRiskWarningHtml(data);
       const hasCriticalRisk = getRiskInfo(data).firstNegativeBalance;
@@ -1795,9 +2081,23 @@
           </div>
 
           <div class="report-section">
+            <h2>Model Assumptions</h2>
+            <div class="assumptions-grid">${buildAssumptionsHtml()}</div>
+            <div class="assumptions-note">
+              These assumptions are simplified for education and discussion, not personalized financial advice.
+            </div>
+          </div>
+
+          <div class="report-section">
             <h2>Risk Summary</h2>
             <div class="${hasRiskWarning ? "report-warning" : ""}">${warningHtml}</div>
           </div>
+
+          <div class="report-section">
+            <h2>Mentor Discussion Questions</h2>
+            <ol class="mentor-list">${buildMentorQuestionsHtml(data, true)}</ol>
+          </div>
+
 
           <div class="report-section">
             <h2>Chart</h2>
@@ -2110,6 +2410,16 @@
       monthlyIncomeInput.value = customStartIncome;
       baseExpensesInput.value = customBaseExpenses;
       draw();
+    });
+
+    assumptionsHeader.addEventListener("click", () => {
+      assumptionsPanel.classList.toggle("open");
+      assumptionsToggle.textContent = assumptionsPanel.classList.contains("open") ? "hide" : "show";
+    });
+
+    mentorHeader.addEventListener("click", () => {
+      mentorPanel.classList.toggle("open");
+      mentorToggle.textContent = mentorPanel.classList.contains("open") ? "hide" : "show";
     });
 
     customCostBtn.addEventListener("click", useCustomCost);
