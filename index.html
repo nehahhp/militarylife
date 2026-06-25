@@ -799,7 +799,7 @@
       <div>
         <h1>Life Choices Cashflow Visualizer</h1>
         <div class="subtitle">
-          Drag a life choice onto the graph. Pick a cost. See how monthly cashflow, invested savings, and projected investment balance change from age 18 onward.
+          Drag a life choice onto the graph. Pick a cost. See how monthly cashflow, invested savings, and projected investment balance change from the start of the selected career.
         </div>
       </div>
 
@@ -877,6 +877,11 @@
         <div class="icon">🚑</div>
         <div class="label">Emergency</div>
       </div>
+
+      <div class="choice" data-type="militaryExit">
+        <div class="icon">🎖️</div>
+        <div class="label">Mil. Sep/Ret</div>
+      </div>
     </div>
 
     <div class="main-layout">
@@ -895,7 +900,7 @@
         </div>
 
         <div class="hint">
-          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts. Purple investment balance uses the right-side axis and shows accumulated savings plus investment growth at 8% per year. It does not include home equity, car value, pension value, or other assets. College, car, child, and emergency costs now end after their default durations.
+          Drop choices on the chart. Drag an existing choice icon left or right to move it to a different age. Move your mouse or touch the graph to see dollar amounts. Purple investment balance uses the right-side axis and shows accumulated savings plus investment growth at 8% per year. It does not include home equity, car value, pension value, or other assets. College, car, child, and emergency costs now end after their default durations. Military Separation / Retirement shows what happens when active-duty service ends before or after 20 years of service.
         </div>
 
         <div class="warning" id="warningBox"></div>
@@ -952,13 +957,23 @@
       <div class="side-card">
         <div class="summary-grid">
           <div class="summary-card">
-            <div class="small">Income at age 18</div>
+            <div class="small" id="incomeStartLabel">Starting income</div>
             <div class="big" id="incomeStartSummary">$0</div>
           </div>
 
           <div class="summary-card">
             <div class="small">Base expenses</div>
             <div class="big" id="baseSummary">$0</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="small">Military exit status</div>
+            <div class="big" id="retirementStatusSummary">Not selected</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="small">Estimated military pension</div>
+            <div class="big" id="pensionSummary">None</div>
           </div>
 
           <div class="summary-card">
@@ -1014,7 +1029,7 @@
 
       <div class="preset-grid" id="presetGrid"></div>
 
-      <div>
+      <div id="customCostSection">
         <strong>Custom monthly cost</strong>
         <div class="custom-row">
           <input id="customCostInput" type="number" min="0" placeholder="Enter monthly cost" />
@@ -1041,7 +1056,14 @@
   <script>
     const START_AGE = 18;
     const FULL_END_AGE = 62;
+
+    const careerStartAges = {
+      enlisted: 18,
+      officer: 22
+    };
     const INVESTMENT_RETURN = 0.08;
+    const MILITARY_RETIREMENT_YEARS = 20;
+    const BRS_PENSION_MULTIPLIER = 0.40;
 
     const baselineExpensesByCareer = {
       enlisted: 1000,
@@ -1134,6 +1156,13 @@
           { name: "Medium emergency", description: "Bigger unexpected expense", monthlyCost: 800 },
           { name: "Major emergency", description: "Large ongoing emergency cost", monthlyCost: 2000 }
         ]
+      },
+      militaryExit: {
+        label: "Military Separation / Retirement",
+        icon: "🎖️",
+        presets: [
+          { name: "Apply Military Exit", description: "Use this selected age to show service length and retirement benefits", monthlyCost: 0 }
+        ]
       }
     };
 
@@ -1155,8 +1184,11 @@
     const viewSelect = document.getElementById("viewSelect");
     const resetBtn = document.getElementById("resetBtn");
 
+    const incomeStartLabel = document.getElementById("incomeStartLabel");
     const incomeStartSummary = document.getElementById("incomeStartSummary");
     const baseSummary = document.getElementById("baseSummary");
+    const retirementStatusSummary = document.getElementById("retirementStatusSummary");
+    const pensionSummary = document.getElementById("pensionSummary");
     const choiceSummary = document.getElementById("choiceSummary");
     const netSummary = document.getElementById("netSummary");
     const choiceSummaryLabel = document.getElementById("choiceSummaryLabel");
@@ -1183,6 +1215,7 @@
     const modalSubtitle = document.getElementById("modalSubtitle");
     const presetGrid = document.getElementById("presetGrid");
     const customCostInput = document.getElementById("customCostInput");
+    const customCostSection = document.getElementById("customCostSection");
     const spouseIncomeSection = document.getElementById("spouseIncomeSection");
     const spouseIncomeInput = document.getElementById("spouseIncomeInput");
     const customCostBtn = document.getElementById("customCostBtn");
@@ -1198,9 +1231,13 @@
       return "$" + Math.round(value).toLocaleString();
     }
 
+    function getCareerStartAge() {
+      return careerStartAges[careerPath] || START_AGE;
+    }
+
     function getViewEndAge() {
       if (viewMode === "full") return FULL_END_AGE;
-      return Math.min(FULL_END_AGE, START_AGE + Number(viewMode));
+      return Math.min(FULL_END_AGE, getCareerStartAge() + Number(viewMode));
     }
 
     function getBaselineExpenses() {
@@ -1234,22 +1271,79 @@
       return activeMarriageSpouseIncomes.reduce((sum, income) => sum + income, 0);
     }
 
-    function getIncomeAtAge(age) {
+    function getMilitaryExitChoice() {
+      return choices
+        .filter(choice => choice.type === "militaryExit")
+        .slice()
+        .sort((a, b) => a.age - b.age)[0] || null;
+    }
+
+    function getYearsServedAtExit(exitChoice) {
+      if (!exitChoice) return 0;
+      return Math.max(0, exitChoice.age - getCareerStartAge());
+    }
+
+    function getBaseCareerIncomeAtAge(age) {
       const path = incomePaths[careerPath];
       const startIncome = customStartIncome;
+      const careerStartAge = getCareerStartAge();
 
-      let personalIncome;
+      if (age < careerStartAge) {
+        return 0;
+      }
 
       if (age <= 35) {
-        personalIncome = startIncome + ((age - START_AGE) * path.yearlyGrowthUntil35);
-      } else {
-        const incomeAt35 = startIncome + ((35 - START_AGE) * path.yearlyGrowthUntil35);
-        personalIncome = incomeAt35 + ((age - 35) * path.yearlyGrowthAfter35);
+        return startIncome + ((age - careerStartAge) * path.yearlyGrowthUntil35);
+      }
+
+      const incomeAt35 = startIncome + ((35 - careerStartAge) * path.yearlyGrowthUntil35);
+      return incomeAt35 + ((age - 35) * path.yearlyGrowthAfter35);
+    }
+
+    function getEstimatedPensionAtExit(exitChoice) {
+      if (!exitChoice) return 0;
+
+      const yearsServed = getYearsServedAtExit(exitChoice);
+      if (yearsServed < MILITARY_RETIREMENT_YEARS) return 0;
+
+      return getBaseCareerIncomeAtAge(exitChoice.age) * BRS_PENSION_MULTIPLIER;
+    }
+
+    function getMilitaryExitStatusText() {
+      const exitChoice = getMilitaryExitChoice();
+      if (!exitChoice) return "Not selected";
+
+      const yearsServed = getYearsServedAtExit(exitChoice);
+      if (yearsServed < MILITARY_RETIREMENT_YEARS) {
+        return "Leaves at " + yearsServed + " yrs";
+      }
+
+      return "Retires at " + yearsServed + " yrs";
+    }
+
+    function getMilitaryExitDetailText(exitChoice = getMilitaryExitChoice()) {
+      if (!exitChoice) return "No military exit age has been selected.";
+
+      const yearsServed = getYearsServedAtExit(exitChoice);
+      const pension = getEstimatedPensionAtExit(exitChoice);
+
+      if (yearsServed < MILITARY_RETIREMENT_YEARS) {
+        return "You have completed " + yearsServed + " years of military service. Because you served less than 20 years: no military pension, no retiree TRICARE. Possible VA benefits may exist, but are not shown here.";
+      }
+
+      return "You have completed " + yearsServed + " years of military service. Because you completed 20 or more years: active-duty income ends, estimated military pension begins, and retiree TRICARE eligibility is noted.";
+    }
+
+    function getIncomeAtAge(age) {
+      const exitChoice = getMilitaryExitChoice();
+      let personalIncome = getBaseCareerIncomeAtAge(age);
+
+      if (exitChoice && age >= exitChoice.age) {
+        personalIncome = getEstimatedPensionAtExit(exitChoice);
       }
 
       return personalIncome + getSpouseIncomeAtAge(age);
     }
-
     function resizeCanvas() {
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * window.devicePixelRatio;
@@ -1259,15 +1353,17 @@
     }
 
     function ageToX(age, left, width) {
+      const startAge = getCareerStartAge();
       const endAge = getViewEndAge();
-      return left + ((age - START_AGE) / (endAge - START_AGE)) * width;
+      return left + ((age - startAge) / (endAge - startAge)) * width;
     }
 
     function xToAge(x, left, width) {
+      const startAge = getCareerStartAge();
       const endAge = getViewEndAge();
       const pct = (x - left) / width;
-      const age = START_AGE + pct * (endAge - START_AGE);
-      return Math.max(START_AGE, Math.min(endAge, Math.round(age)));
+      const age = startAge + pct * (endAge - startAge);
+      return Math.max(startAge, Math.min(endAge, Math.round(age)));
     }
 
     function getChoiceDurationYears(type) {
@@ -1300,7 +1396,7 @@
       let lifetimeIncome = 0;
       let lifetimeExpenses = 0;
 
-      for (let age = START_AGE; age <= endAge; age++) {
+      for (let age = getCareerStartAge(); age <= endAge; age++) {
         const income = getIncomeAtAge(age);
         const baselineExpenses = getBaselineExpenses();
         const choiceExpenses = getChoiceExpensesAtAge(age);
@@ -1420,16 +1516,17 @@
     }
 
     function drawAgeTicks(chart) {
+      const startAge = getCareerStartAge();
       const endAge = getViewEndAge();
-      const span = endAge - START_AGE;
+      const span = endAge - startAge;
       let ticks;
 
-      if (span <= 5) ticks = [START_AGE, START_AGE + 1, START_AGE + 2, START_AGE + 3, START_AGE + 4, endAge];
-      else if (span <= 10) ticks = [START_AGE, START_AGE + 2, START_AGE + 4, START_AGE + 6, START_AGE + 8, endAge];
-      else if (span <= 20) ticks = [START_AGE, START_AGE + 5, START_AGE + 10, START_AGE + 15, endAge];
-      else ticks = [START_AGE, 30, 40, 50, endAge];
+      if (span <= 5) ticks = [startAge, startAge + 1, startAge + 2, startAge + 3, startAge + 4, endAge];
+      else if (span <= 10) ticks = [startAge, startAge + 2, startAge + 4, startAge + 6, startAge + 8, endAge];
+      else if (span <= 20) ticks = [startAge, startAge + 5, startAge + 10, startAge + 15, endAge];
+      else ticks = [startAge, 30, 40, 50, endAge];
 
-      ticks = [...new Set(ticks)].filter(age => age >= START_AGE && age <= endAge);
+      ticks = [...new Set(ticks)].filter(age => age >= startAge && age <= endAge);
 
       ticks.forEach(age => {
         const x = ageToX(age, chart.left, chart.width);
@@ -1523,16 +1620,21 @@
       const firstAnnualDeficit = data.find(row => row.annualNetCash < 0);
       const firstNegativeBalance = data.find(row => row.projectedNetWorth < 0);
 
+      const militaryExitChoice = getMilitaryExitChoice();
+      const pre20MilitaryExit = militaryExitChoice && getYearsServedAtExit(militaryExitChoice) < MILITARY_RETIREMENT_YEARS;
+
       return {
         firstAnnualDeficit,
-        firstNegativeBalance
+        firstNegativeBalance,
+        militaryExitChoice,
+        pre20MilitaryExit
       };
     }
 
     function buildRiskWarningHtml(data) {
-      const { firstAnnualDeficit, firstNegativeBalance } = getRiskInfo(data);
+      const { firstAnnualDeficit, firstNegativeBalance, militaryExitChoice, pre20MilitaryExit } = getRiskInfo(data);
 
-      if (!firstAnnualDeficit && !firstNegativeBalance) {
+      if (!firstAnnualDeficit && !firstNegativeBalance && !pre20MilitaryExit) {
         return "";
       }
 
@@ -1568,14 +1670,28 @@
         `);
       }
 
+      if (pre20MilitaryExit) {
+        parts.push(`
+          <div class="risk-item">
+            <div class="risk-icon">🎖️</div>
+            <div>
+              <div class="risk-title">MILITARY SEPARATION: Less than 20 years of service.</div>
+              <div class="risk-detail">
+                ${getMilitaryExitDetailText(militaryExitChoice)}
+              </div>
+            </div>
+          </div>
+        `);
+      }
+
       return parts.join("");
     }
 
     function buildReportRiskWarningHtml(data) {
-      const { firstAnnualDeficit, firstNegativeBalance } = getRiskInfo(data);
+      const { firstAnnualDeficit, firstNegativeBalance, militaryExitChoice, pre20MilitaryExit } = getRiskInfo(data);
 
-      if (!firstAnnualDeficit && !firstNegativeBalance) {
-        return "No annual cashflow deficit or negative investment balance in the selected view.";
+      if (!firstAnnualDeficit && !firstNegativeBalance && !pre20MilitaryExit) {
+        return "No annual cashflow deficit, negative investment balance, or pre-20-year military exit warning in the selected view.";
       }
 
       const parts = [];
@@ -1604,6 +1720,18 @@
         `);
       }
 
+      if (pre20MilitaryExit) {
+        parts.push(`
+          <div class="risk-item">
+            <div class="risk-icon">🎖️</div>
+            <div>
+              <div class="risk-warning-title">MILITARY SEPARATION: Less than 20 years of service.</div>
+              <div>${escapeHtml(getMilitaryExitDetailText(militaryExitChoice))}</div>
+            </div>
+          </div>
+        `);
+      }
+
       return parts.join("");
     }
 
@@ -1622,7 +1750,7 @@
       return [
         {
           title: "Career income path",
-          text: path.label + " starts at " + money(customStartIncome) + "/mo, then grows by " + money(path.yearlyGrowthUntil35) + "/mo each year until age 35 and " + money(path.yearlyGrowthAfter35) + "/mo each year after age 35."
+          text: path.label + " starts at age " + getCareerStartAge() + " with " + money(customStartIncome) + "/mo, then grows by " + money(path.yearlyGrowthUntil35) + "/mo each year until age 35 and " + money(path.yearlyGrowthAfter35) + "/mo each year after age 35."
         },
         {
           title: "Base expenses",
@@ -1643,6 +1771,10 @@
         {
           title: "Investment balance",
           text: "Positive annual cashflow is assumed to be invested at " + Math.round(INVESTMENT_RETURN * 100) + "% per year. Negative annual cashflow reduces the projected investment balance."
+        },
+        {
+          title: "Military exit",
+          text: "Years of service are counted from the selected career start age: enlisted starts at age 18 and officer starts at age 22. If Military Separation / Retirement is dropped before 20 years of service, the scenario shows no military pension and no retiree TRICARE. At 20+ years, active-duty income stops and a simplified pension equal to " + Math.round(BRS_PENSION_MULTIPLIER * 100) + "% of final monthly income begins. Possible VA benefits may exist, but are not shown here."
         },
         {
           title: "Not full net worth",
@@ -1717,6 +1849,17 @@
         );
       }
 
+      const militaryExitChoice = getMilitaryExitChoice();
+      if (militaryExitChoice) {
+        questions.push(
+          getMilitaryExitDetailText(militaryExitChoice) + " How does this change the long-term plan compared with staying to 20 years?"
+        );
+      } else {
+        questions.push(
+          "What would change if the person left the military before 20 years versus staying long enough to earn retirement benefits?"
+        );
+      }
+
       questions.push(
         "At age " + endAge + ", the projected investment balance is " + money(finalRow.projectedNetWorth) + ". Does this outcome support the person's long-term goals, or should the scenario be adjusted?"
       );
@@ -1745,8 +1888,14 @@
       const endAge = getViewEndAge();
       const finalRow = data[data.length - 1];
 
-      incomeStartSummary.textContent = money(getIncomeAtAge(START_AGE));
+      const militaryExitChoice = getMilitaryExitChoice();
+
+      incomeStartLabel.textContent = "Income at age " + getCareerStartAge();
+      incomeStartSummary.textContent = money(getIncomeAtAge(getCareerStartAge()));
       baseSummary.textContent = money(getBaselineExpenses());
+      retirementStatusSummary.textContent = getMilitaryExitStatusText();
+      const estimatedPension = getEstimatedPensionAtExit(militaryExitChoice);
+      pensionSummary.textContent = estimatedPension > 0 ? money(estimatedPension) + "/mo" : "None";
       choiceSummaryLabel.textContent = "Choice expenses at age " + endAge;
       netSummaryLabel.textContent = "Net cash at age " + endAge;
       choiceSummary.textContent = money(finalRow.choiceExpenses);
@@ -1795,14 +1944,19 @@
             ? `<div><strong>Net effect before divorce: ${money(choice.spouseIncome - choice.monthlyCost)}/mo</strong></div>`
             : "";
           const endAge = getChoiceEndAge(choice);
-          const durationText = endAge
-            ? `<div>Duration: ${choice.durationYears} year${choice.durationYears === 1 ? "" : "s"} — cost ends at age ${endAge}</div>`
-            : `<div>Duration: ongoing</div>`;
+          const durationText = choice.type === "militaryExit"
+            ? `<div>${getMilitaryExitDetailText(choice)}</div>`
+            : endAge
+              ? `<div>Duration: ${choice.durationYears} year${choice.durationYears === 1 ? "" : "s"} — cost ends at age ${endAge}</div>`
+              : `<div>Duration: ongoing</div>`;
+          const costText = choice.type === "militaryExit"
+            ? `<div>${getYearsServedAtExit(choice) < MILITARY_RETIREMENT_YEARS ? "No military pension" : "Estimated pension: " + money(getEstimatedPensionAtExit(choice)) + "/mo"}</div>`
+            : `<div>${choice.costLabel}: -${money(choice.monthlyCost)}/mo</div>`;
 
           return `
             <div class="event-row">
               <div>${choice.icon} <strong>${choice.label}</strong> at age ${choice.age}${hiddenNote}</div>
-              <div>${choice.costLabel}: -${money(choice.monthlyCost)}/mo</div>
+              ${costText}
               ${durationText}
               ${spouseText}
               ${divorceText}
@@ -1969,22 +2123,26 @@
         .sort((a, b) => a.age - b.age)
         .map(choice => {
           const endAge = getChoiceEndAge(choice);
-          const duration = endAge
-            ? `${choice.durationYears} year${choice.durationYears === 1 ? "" : "s"}, ends at age ${endAge}`
-            : "Ongoing";
+          const duration = choice.type === "militaryExit"
+            ? "Service ends at selected age"
+            : endAge
+              ? `${choice.durationYears} year${choice.durationYears === 1 ? "" : "s"}, ends at age ${endAge}`
+              : "Ongoing";
           const spouseIncome = choice.spouseIncome ? money(choice.spouseIncome) + "/mo" : "—";
-          const note = choice.type === "divorce"
-            ? "Removes active spouse income"
-            : choice.spouseIncome
-              ? "Spouse income included until divorce"
-              : "";
+          const note = choice.type === "militaryExit"
+            ? getMilitaryExitDetailText(choice)
+            : choice.type === "divorce"
+              ? "Removes active spouse income"
+              : choice.spouseIncome
+                ? "Spouse income included until divorce"
+                : "";
 
           return `
             <tr>
               <td>${escapeHtml(choice.age)}</td>
               <td>${escapeHtml(choice.label)}</td>
-              <td>${escapeHtml(choice.costLabel)}</td>
-              <td>${escapeHtml(money(choice.monthlyCost) + "/mo")}</td>
+              <td>${escapeHtml(choice.type === "militaryExit" ? "Service decision" : choice.costLabel)}</td>
+              <td>${escapeHtml(choice.type === "militaryExit" ? "—" : money(choice.monthlyCost) + "/mo")}</td>
               <td>${escapeHtml(duration)}</td>
               <td>${escapeHtml(spouseIncome)}</td>
               <td>${escapeHtml(note)}</td>
@@ -2057,8 +2215,11 @@
 
       const metricsHtml = [
         buildReportMetric("Career", careerLabel),
+        buildReportMetric("Career start age", getCareerStartAge()),
         buildReportMetric("Starting monthly income", money(customStartIncome)),
         buildReportMetric("Base monthly expenses", money(customBaseExpenses)),
+        buildReportMetric("Military exit status", getMilitaryExitStatusText()),
+        buildReportMetric("Estimated military pension", getEstimatedPensionAtExit(getMilitaryExitChoice()) > 0 ? money(getEstimatedPensionAtExit(getMilitaryExitChoice())) + "/mo" : "None"),
         buildReportMetric("Selected view", endAge === FULL_END_AGE ? "Full career to age " + FULL_END_AGE : "To age " + endAge),
         buildReportMetric("Projected investment balance", money(finalRow.projectedNetWorth)),
         buildReportMetric("Final monthly net cash", money(finalRow.netCash)),
@@ -2155,24 +2316,56 @@
       pendingChoice = { type, age };
 
       modalTitle.textContent = data.icon + " " + data.label;
-      const durationText = data.defaultDurationYears
-        ? " This cost will last for " + data.durationLabel + "."
-        : " This cost will continue until removed or changed by another choice.";
 
-      modalSubtitle.textContent = "Dropped at age " + age + ". Choose the monthly cost." + durationText;
+      if (type === "militaryExit") {
+        const yearsServed = Math.max(0, age - getCareerStartAge());
+        const isRetirementEligible = yearsServed >= MILITARY_RETIREMENT_YEARS;
+
+        modalSubtitle.innerHTML = `
+          You have completed <strong>${yearsServed} years</strong> of military service.<br><br>
+          ${isRetirementEligible
+            ? `Because you completed <strong>20 or more years</strong>, this choice results in:<br>
+              ✅ Active-duty income ends<br>
+              ✅ Estimated military pension begins<br>
+              ✅ Retiree TRICARE eligibility`
+            : `Because you served <strong>less than 20 years</strong>, this choice results in:<br>
+              ❌ No military pension<br>
+              ❌ No retiree TRICARE<br>
+              ℹ️ Possible VA benefits may exist, but are not shown here.`}
+        `;
+      } else {
+        const durationText = data.defaultDurationYears
+          ? " This cost will last for " + data.durationLabel + "."
+          : " This cost will continue until removed or changed by another choice.";
+
+        modalSubtitle.textContent = "Dropped at age " + age + ". Choose the monthly cost." + durationText;
+      }
+
       customCostInput.value = "";
       spouseIncomeInput.value = "";
+      customCostSection.style.display = type === "militaryExit" ? "none" : "block";
       spouseIncomeSection.style.display = type === "marriage" ? "block" : "none";
 
-      presetGrid.innerHTML = data.presets.map((preset, index) => `
-        <button class="preset-btn" onclick="selectPreset(${index})">
-          <div>
-            <strong>${preset.name}</strong>
-            <span>${preset.description}</span>
-          </div>
-          <strong>${money(preset.monthlyCost)}/mo</strong>
-        </button>
-      `).join("");
+      if (type === "militaryExit") {
+        presetGrid.innerHTML = `
+          <button class="preset-btn" onclick="selectPreset(0)">
+            <div>
+              <strong>Apply Military Exit</strong>
+              <span>Use this age as the end of active-duty service.</span>
+            </div>
+          </button>
+        `;
+      } else {
+        presetGrid.innerHTML = data.presets.map((preset, index) => `
+          <button class="preset-btn" onclick="selectPreset(${index})">
+            <div>
+              <strong>${preset.name}</strong>
+              <span>${preset.description}</span>
+            </div>
+            <strong>${money(preset.monthlyCost)}/mo</strong>
+          </button>
+        `).join("");
+      }
 
       costModal.style.display = "flex";
     }
@@ -2182,6 +2375,7 @@
       pendingChoice = null;
       customCostInput.value = "";
       spouseIncomeInput.value = "";
+      customCostSection.style.display = "block";
       spouseIncomeSection.style.display = "none";
     }
 
@@ -2194,6 +2388,10 @@
       const spouseIncome = pendingChoice.type === "marriage"
         ? Math.max(0, Number(spouseIncomeInput.value) || 0)
         : 0;
+
+      if (pendingChoice.type === "militaryExit") {
+        choices = choices.filter(choice => choice.type !== "militaryExit");
+      }
 
       choices.push({
         type: pendingChoice.type,
@@ -2266,6 +2464,7 @@
       tooltip.innerHTML = `
         <strong>Age ${row.age}</strong><br>
         Income: ${money(row.income)}<br>
+        Military exit status: ${getMilitaryExitStatusText()}<br>
         Spouse income included: ${money(getSpouseIncomeAtAge(row.age))}<br>
         Base expenses: ${money(row.baselineExpenses)}<br>
         After choices: ${money(row.afterChoiceExpenses)}<br>
