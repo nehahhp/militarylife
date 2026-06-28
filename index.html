@@ -353,6 +353,7 @@
       display: grid;
       grid-template-columns: 1fr;
       gap: 8px;
+      margin-top: 16px;
       margin-bottom: 12px;
     }
 
@@ -955,6 +956,21 @@
       </div>
 
       <div class="side-card">
+        <div class="events-title">Your Life Choices</div>
+        <div id="eventsList">No choices yet.</div>
+
+        <div class="scenario-panel">
+          <div class="scenario-title">Saved Scenarios</div>
+          <div class="scenario-note">
+            Save your current career, income, base expenses, view, and life choices. Scenarios are stored in this browser.
+          </div>
+          <div class="scenario-save-row">
+            <input id="scenarioNameInput" type="text" placeholder="Example: Enlisted with college" />
+            <button class="scenario-btn" id="saveScenarioBtn">Save</button>
+          </div>
+          <div class="scenario-list" id="savedScenariosList">No saved scenarios yet.</div>
+        </div>
+
         <div class="summary-grid">
           <div class="summary-card">
             <div class="small" id="incomeStartLabel">Starting income</div>
@@ -1000,21 +1016,6 @@
             <div class="small">Lifetime expenses</div>
             <div class="big" id="lifetimeExpensesSummary">$0</div>
           </div>
-        </div>
-
-        <div class="events-title">Choices Added</div>
-        <div id="eventsList">No choices yet.</div>
-
-        <div class="scenario-panel">
-          <div class="scenario-title">Saved Scenarios</div>
-          <div class="scenario-note">
-            Save your current career, income, base expenses, view, and life choices. Scenarios are stored in this browser.
-          </div>
-          <div class="scenario-save-row">
-            <input id="scenarioNameInput" type="text" placeholder="Example: Enlisted with college" />
-            <button class="scenario-btn" id="saveScenarioBtn">Save</button>
-          </div>
-          <div class="scenario-list" id="savedScenariosList">No saved scenarios yet.</div>
         </div>
       </div>
     </div>
@@ -1536,6 +1537,23 @@
       });
     }
 
+
+    function drawAxisLabels(chart) {
+      ctx.save();
+
+      ctx.fillStyle = "#4b5563";
+      ctx.font = "13px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Age (Years)", chart.left + chart.width / 2, chart.bottom + 52);
+
+      ctx.textAlign = "left";
+      ctx.fillText("Monthly Amount", 8, chart.top - 10);
+
+      ctx.restore();
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+    }
+
     function draw() {
       const rect = canvas.getBoundingClientRect();
       const w = rect.width;
@@ -1548,10 +1566,10 @@
       const netWorthBounds = getNetWorthBounds(data);
 
       const chart = {
-        left: 60,
+        left: 76,
         right: w - 150,
-        top: 24,
-        bottom: h - 48,
+        top: 34,
+        bottom: h - 68,
         minY: bounds.minY,
         maxY: bounds.maxY,
         netWorthMinY: netWorthBounds.minY,
@@ -1592,6 +1610,7 @@
       ctx.stroke();
 
       drawAgeTicks(chart);
+      drawAxisLabels(chart);
 
       drawLine(data, "income", "#16a34a", chart);
       drawLine(data, "baselineExpenses", "#6b7280", chart);
@@ -2558,8 +2577,8 @@
           e.clientY <= rect.bottom;
 
         if (insideChart) {
-          const chartLeft = rect.left + 60;
-          const chartWidth = rect.width - 210;
+          const chartLeft = rect.left + 76;
+          const chartWidth = rect.width - 226;
           const age = xToAge(e.clientX, chartLeft, chartWidth);
 
           openCostModal(dragType, age);
